@@ -50,7 +50,6 @@
     .stake-val { font-size: 10px; color: #cbd5e1; margin-top: 2px; }
     .dealer-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); font-size: 9px; padding: 2px 8px; border-radius: 10px; margin-top: 5px; display: inline-block; border: 1px solid var(--gold); }
 
-    /* --- ADDED ANIMATED EMOJI WOMAN CSS --- */
     @keyframes floatDealer {
       0%, 100% { transform: translateY(0) scale(1); }
       50% { transform: translateY(-6px) scale(1.05); }
@@ -66,7 +65,6 @@
 
     .seat { position: absolute; transform: translate(-50%, -50%); width: 75px; display: flex; flex-direction: column; align-items: center; z-index: 10; transition: all 0.3s ease; }
     
-    /* 1. Expand the main seat container (75px * 2.5 = ~185px) and lift it slightly to clear action board */
     .pos-0 { top: 85%; left: 50%; width: 185px; z-index: 20; }
     
     .pos-1 { top: 85%; left: 10%; }
@@ -98,7 +96,6 @@
 
     .cards-tray { display: flex; justify-content: center; margin-top: 14px; pointer-events: none; position: relative; z-index: 5; } 
     
-    /* 2. Push the cards tray further down so it doesn't overlap the avatar */
     .seat.pos-0 .cards-tray { margin-top: 30px; } 
 
     .card { width: 28px; height: 40px; background: #fff; border-radius: 3px; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); position: relative; display: flex; align-items: center; justify-content: center; margin-left: -12px; border: 1px solid #cbd5e1; transition: transform 0.2s; }
@@ -107,7 +104,6 @@
     .card:nth-child(2) { transform: rotate(0deg) translateY(0); z-index: 2; }
     .card:nth-child(3) { transform: rotate(12deg) translateY(2px); z-index: 3; }
     
-    /* 3. Scale up the cards (28x40 * 2.5 = 70x100) and adjust overlap spacing */
     .seat.pos-0 .card { 
       width: 70px; 
       height: 100px; 
@@ -120,7 +116,6 @@
     .corner-val { position: absolute; top: 2px; left: 2px; font-size: 8px; font-weight: 900; line-height: 1; font-family: Georgia, serif; }
     .corner-suit { position: absolute; top: 10px; left: 2px; font-size: 7px; }
     
-    /* 4. Scale up the values, suits, and symbols inside the cards */
     .seat.pos-0 .corner-val { font-size: 20px; left: 5px; top: 4px; }
     .seat.pos-0 .corner-suit { font-size: 18px; left: 5px; top: 26px; }
     .center-symbol { font-size: 14px; } 
@@ -130,13 +125,11 @@
     .joker-star { color: var(--gold); font-size: 12px; } 
     .seat.pos-0 .joker-star { font-size: 35px; }
 
-    /* 5. Scale up the avatar text, chips, status badges, and action buttons */
     .seat.pos-0 .name-txt { font-size: 18px; margin-top: 4px; }
     .seat.pos-0 .chips-txt { font-size: 16px; margin-top: 6px; }
     .seat.pos-0 .seat-status { font-size: 14px; padding: 5px 12px; bottom: -16px; }
     .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
     
-    /* 'നോക്കുക' ബട്ടൺ കാണാൻ കഴിയുന്ന രീതിയിൽ മുകളിലേക്ക് മാറ്റി സ്ഥാപിച്ചു */
     .seat.pos-0 .btn-seat-action { 
       font-size: 15px; 
       padding: 10px 0; 
@@ -513,7 +506,7 @@
         
         if (activePlayer && !activePlayer.isBlind) {
             if (prevPlayer && !prevPlayer.isBlind) {
-                displayCost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ബെറ്റ് അടിസ്ഥാന തുകയാക്കുന്നു
+                displayCost = state.currentStake; 
             } else {
                 displayCost = state.currentStake * 2;
             }
@@ -542,7 +535,6 @@
         var myIndex = state.players.findIndex(p => p.isOccupied && p.name.toLowerCase() === cleanUser);
         var offset = myIndex !== -1 ? (7 - myIndex) % 7 : 0;
 
-        // --- EMOJI WOMAN LOGIC ---
         var face = '👩‍💼'; // Default Professional Dealer
         var msg = state.message || '';
 
@@ -1010,7 +1002,6 @@
         var active = state.players[state.activePlayerIndex];
         if (callerName.trim().toLowerCase() !== active.name.trim().toLowerCase()) return state;
         
-        // --- BET AMOUNT LOGIC FIX ---
         var prevPlayer = null;
         for (var i = 1; i < state.players.length; i++) {
             var checkIdx = (state.activePlayerIndex + i) % state.players.length;
@@ -1023,7 +1014,7 @@
         var cost = state.currentStake;
         if (!active.isBlind) {
             if (prevPlayer && !prevPlayer.isBlind) {
-                cost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ബെറ്റ് അടിസ്ഥാന തുകയാക്കുന്നു
+                cost = state.currentStake; 
             } else {
                 cost = state.currentStake * 2;
             }
@@ -1064,7 +1055,6 @@
         var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
         if (activeRemaining.length > 2) { state.message = '2 പേർ മാത്രം ബാക്കിയുള്ളപ്പോൾ മാത്രമേ ഷോഡൗൺ സാധ്യമാകൂ.'; return state; }
         
-        // --- BET AMOUNT LOGIC FIX ---
         var prevPlayer = null;
         for (var i = 1; i < state.players.length; i++) {
             var checkIdx = (state.activePlayerIndex + i) % state.players.length;
@@ -1075,7 +1065,7 @@
         var callCost = state.currentStake;
         if (!active.isBlind) {
             if (prevPlayer && !prevPlayer.isBlind) {
-                callCost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ഷോഡൗൺ തുകയും കുറയുന്നു
+                callCost = state.currentStake; 
             } else {
                 callCost = state.currentStake * 2;
             }
@@ -1188,20 +1178,42 @@
       var uniqueSuits = new Set(suits); 
       var isFlush = (uniqueSuits.size === 1); 
       var isPair = (ranks[0] === ranks[1] || ranks[1] === ranks[2]);
+      var isSequence = (ranks[0] + 1 === ranks[1] && ranks[1] + 1 === ranks[2]);
 
       // 1. ട്രയൽ (Trail)
       if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
-         return { score: 70000 + ranks[0], desc: (cards[0].label === 'A' ? 'ഏസ് ട്രയൽ (Three Aces)' : cards[0].label + '-ന്റെ ട്രയൽ') };
+         return { score: 90000 + ranks[0], desc: (cards[0].label === 'A' ? 'ഏസ് ട്രയൽ (Three Aces)' : cards[0].label + '-ന്റെ ട്രയൽ') };
       }
       
-      // 2. സ്പെഷ്യൽ സ്പേഡ് AKQ (TIN)
+      // 2. TIN Logic: Must be A, K, Q (ranks 12, 13, 14), 3 different suits, exactly one Spade, AND NO JOKER
       var isAKQ = (ranks[0] === 12 && ranks[1] === 13 && ranks[2] === 14);
-      // 🔴 FIX: ഇത് വർക്ക് ചെയ്യണമെങ്കിൽ 3 കാർഡും സ്പേഡ് (♠) തന്നെ ആയിരിക്കണം!
-      if (isAKQ && uniqueSuits.size === 1 && suits[0] === '♠') {
-         return { score: 50000, desc: 'സ്പെഷ്യൽ സ്പേഡ് AKQ (TIN)' };
+      if (isAKQ && uniqueSuits.size === 3 && suits.includes('♠') && !hasJoker) {
+         var cardA = cards.find(c => c.rank === 14);
+         var cardK = cards.find(c => c.rank === 13);
+         var cardQ = cards.find(c => c.rank === 12);
+         
+         if (cardA.suit === '♠') {
+             return { score: 85000, desc: 'ഫസ്റ്റ് ടിൻ (First TIN: A♠)' };
+         } else if (cardK.suit === '♠') {
+             return { score: 84000, desc: 'സെക്കൻഡ് ടിൻ (Second TIN: K♠)' };
+         } else if (cardQ.suit === '♠') {
+             return { score: 83000, desc: 'തേർഡ് ടിൻ (Third TIN: Q♠)' };
+         }
       }
 
-      // 3. കളർ പെയർ (Color Pair)
+      // 3. കളർ റൺ (Pure Sequence / Straight Flush)
+      if (isSequence && isFlush) {
+         var highCard = cards.find(c => c.rank === ranks[2]);
+         return { score: 70000 + ranks[2], desc: 'കളർ റൺ (Pure Sequence ' + highCard.label + '-ഹൈ)' };
+      }
+
+      // 4. റൺ (Sequence / Straight)
+      if (isSequence && !isFlush) {
+         var highCard = cards.find(c => c.rank === ranks[2]);
+         return { score: 60000 + ranks[2], desc: 'റൺ (Sequence ' + highCard.label + '-ഹൈ)' };
+      }
+
+      // 5. കളർ പെയർ (Color Pair)
       if (isFlush && isPair) {
           var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1];
           var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0];
@@ -1209,13 +1221,13 @@
           return { score: 48000 + (pairRank * 30) + kicker, desc: 'കളർ പെയർ (' + pairCard.label + ')' };
       }
 
-      // 4. നാച്ചുറൽ കളർ / ഫ്ലഷ്
+      // 6. നാച്ചുറൽ കളർ / ഫ്ലഷ്
       if (isFlush && !hasJoker) { 
          var highCard = cards.find(c => c.rank === ranks[2]); 
          return { score: 40000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'കളർ / ഫ്ലഷ് (' + highCard.label + '-ഹൈ)' }; 
       }
 
-      // 5. പെയർ
+      // 7. പെയർ
       if (isPair) { 
          var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1]; 
          var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0]; 
@@ -1223,7 +1235,7 @@
          return { score: 20000 + (pairRank * 30) + kicker, desc: pairCard.label + '-ന്റെ പെയർ' }; 
       }
 
-      // 6. ഹൈ കാർഡ്
+      // 8. ഹൈ കാർഡ്
       var highCard = cards.find(c => c.rank === ranks[2]); 
       return { score: 10000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'ഹൈ കാർഡ് (' + highCard.label + ')' };
     }
@@ -1232,25 +1244,26 @@
       if (!cards || cards.length < 3) return { score: 0, desc: 'കാർഡുകളില്ല' };
       var jokerIndex = cards.findIndex(c => c.isJoker);
       if (jokerIndex === -1) return evaluateStandardHand(cards, false);
+      
       var nonJokerCards = cards.filter((_, idx) => idx !== jokerIndex);
       if (nonJokerCards.length < 2) return { score: 0, desc: 'കാർഡുകളില്ല' };
       
-      // ജോക്കറിന്റെ ചിഹ്നം എപ്പോഴും സ്പേഡ് (♠)
-      var candidateSuits = ['♠']; 
+      var candidateSuits = ['♠', '♥', '♦', '♣']; 
       
-      // 🔴 FIX: ജോക്കർ കയ്യിലുള്ള ബാക്കി 2 കാർഡുകളിൽ ഏതെങ്കിലും ഒന്നായി മാത്രമേ മാറാൻ പാടുള്ളൂ!
-      var candidateRanks = [
-          { rank: nonJokerCards[0].rank, label: nonJokerCards[0].label }, 
-          { rank: nonJokerCards[1].rank, label: nonJokerCards[1].label }
+      var allPossibleRanks = [
+          { rank: 10, label: '10' }, { rank: 11, label: 'J' }, 
+          { rank: 12, label: 'Q' }, { rank: 13, label: 'K' }, { rank: 14, label: 'A' }
       ];
       
       var bestResult = { score: -1, desc: '' };
       candidateSuits.forEach(suit => { 
-          candidateRanks.forEach(r => {
+          allPossibleRanks.forEach(r => {
               var trialJoker = { suit: suit, rank: r.rank, label: r.label, isJoker: false };
               var trialHand = [nonJokerCards[0], nonJokerCards[1], trialJoker];
               var res = evaluateStandardHand(trialHand, true); 
-              if (res && res.score > bestResult.score) bestResult = { score: res.score, desc: res.desc + ' (ജോക്കർ സഹിതം)' };
+              if (res && res.score > bestResult.score) {
+                  bestResult = { score: res.score, desc: res.desc + ' (ജോക്കർ സഹിതം)' };
+              }
           }); 
       });
       return bestResult;
