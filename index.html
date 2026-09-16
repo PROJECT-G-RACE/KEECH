@@ -20,23 +20,6 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #f8fafc; display: flex; flex-direction: column; align-items: center;
       min-height: 100vh; overflow-x: hidden;
-      
-      /* --- PREVENT TEXT SELECTION & LONG PRESS CALLOUT --- */
-      -webkit-touch-callout: none; /* iOS Safari */
-      -webkit-user-select: none;   /* Safari */
-      -khtml-user-select: none;    /* Konqueror HTML */
-      -moz-user-select: none;      /* Old versions of Firefox */
-      -ms-user-select: none;       /* Internet Explorer/Edge */
-      user-select: none;           /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
-    }
-
-    /* Allow selection only in input fields so users can type their names */
-    input, select, textarea {
-      -webkit-user-select: auto !important;
-      -khtml-user-select: auto !important;
-      -moz-user-select: auto !important;
-      -ms-user-select: auto !important;
-      user-select: auto !important;
     }
     
     .rotate-msg { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 4px 10px; border-radius: 20px; font-size: 11px; margin-bottom: 8px; text-align: center; border: 1px solid var(--gold); }
@@ -342,14 +325,6 @@
   <div class="console" id="consoleMsg">കണക്ട് ചെയ്യുന്നു...</div>
 
   <script>
-    window.localPokeTimes = {};
-    window.lastPokeTimes = {};
-
-    // Prevent Context Menu on Long Press
-    window.addEventListener('contextmenu', function (e) { 
-      e.preventDefault(); 
-    });
-
     function setCookie(cname, cvalue, exdays) {
       var d = new Date();
       d.setTime(d.getTime() + (exdays*24*60*60*1000));
@@ -510,15 +485,6 @@
 
     window.renderUI = function(state) {
         if (!state) return;
-        
-        // Setup local poke times for sync issue
-        state.players.forEach((p, idx) => {
-           if (p.pokeMsg && p.pokeMsg.time !== window.lastPokeTimes[idx]) {
-               window.lastPokeTimes[idx] = p.pokeMsg.time;
-               window.localPokeTimes[idx] = Date.now();
-           }
-        });
-
         document.getElementById('consoleMsg').innerText = state.message || "Ready...";
         var cleanUser = (window.myName || '').toLowerCase().trim();
 
@@ -630,8 +596,7 @@
 
           tableHtml += '<div class="' + stateClasses + '"' + seatClick + '>';
           
-          var pokeTop = (displayIndex === 0) ? '-75px' : '-40px';
-          tableHtml += '<div id="poke_seat_' + idx + '" style="display:none; position:absolute; top:' + pokeTop + '; left:50%; transform:translateX(-50%); background:rgba(239,68,68,0.95); color:white; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; white-space:nowrap; z-index:200; pointer-events:none; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.5);"></div>';
+          tableHtml += '<div id="poke_seat_' + idx + '" style="display:none; position:absolute; top:-40px; left:50%; transform:translateX(-50%); background:rgba(239,68,68,0.95); color:white; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; white-space:nowrap; z-index:200; pointer-events:none; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.5);"></div>';
 
           tableHtml += '<div class="avatar-box">';
           if (isDealer) tableHtml += '<div class="dealer-chip">D</div>';
@@ -940,7 +905,7 @@
     function getInitialState() {
       var players = [];
       for (var i = 0; i < MAX_PLAYERS; i++) players.push({ id: i, name: 'സീറ്റ് ' + (i + 1), isOccupied: false, chips: 500, cards: [], isBlind: true, hasSeen: false, folded: true, firstRoundDone: false, joinedAt: 0 });
-      return { pot: 0, currentStake: 10, startingStake: 10, tableStartTime: Date.now(), activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
+      return { pot: 0, currentStake: 10, startingStake: 10, activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
     }
 
     var isActionRunning = false;
@@ -990,7 +955,7 @@
 
     const GameEngine = {
       enforceBlindChainRules: function(state) {
-        if (state.gameOver) return state;
+        if (state.gameOver) return;
         var dealer = state.players[state.dealerPlayerIndex];
         if (dealer && dealer.isOccupied) { dealer.hasSeen = true; dealer.isBlind = false; }
         if (!state.isFirstCycle) return;
@@ -1198,7 +1163,7 @@
             var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
             state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി. 🏆';
             if (!state.history || !Array.isArray(state.history)) state.history = [];
-            state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞു (Auto-fold)' });
+            state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞ্যু (Auto-fold)' });
             if (state.history.length > 30) state.history.shift();
          } else {
             state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ⏳';
@@ -1307,6 +1272,7 @@
 
       // 3. 9♠ ജോക്കർ ഉപയോഗിച്ചുള്ള സ്പേഡ് കളർ (Spade Color with 9♠)
       if (hasJoker && uniqueSuits.size === 1 && suits[0] === '♠') {
+         var highCard = cards.find(c => c.rank === ranks[2] && !c.isJoker) || cards[2];
          return { score: 75000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'സ്പേഡ് കളർ വിത്ത് ജോക്കർ (Spade Color with 9♠)' };
       }
 
@@ -1463,7 +1429,7 @@
         
         if (state.turnStartTime) {
             var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
-            if (totalElapsedSinceTurnStart >= 420) { // 7 Minutes Reset Time
+            if (totalElapsedSinceTurnStart >= 420) { 
                  if (!isCheckingTimeout) {
                      isCheckingTimeout = true;
                      try {
