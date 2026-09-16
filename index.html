@@ -44,7 +44,7 @@
     .poker-table { position: relative; width: 88%; height: 80%; background: radial-gradient(ellipse at center, #059669 0%, #064e3b 100%); border: 14px solid var(--table-rim); border-radius: 50vw; box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 40px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
     .poker-table::after { content: ''; position: absolute; width: 94%; height: 90%; border: 2px solid rgba(255,255,255,0.1); border-radius: 50vw; pointer-events: none; }
 
-    .table-center { position: absolute; text-align: center; z-index: 5; background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); }
+    .table-center { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 5; background: rgba(0,0,0,0.3); padding: 15px 30px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); width: max-content; }
     .pot-title { font-size: 10px; color: #94a3b8; font-weight: bold; letter-spacing: 1px; }
     .pot-val { font-size: 28px; font-weight: 900; color: #34d399; text-shadow: 0 2px 10px rgba(0,0,0,0.8); line-height: 1.1; }
     .stake-val { font-size: 10px; color: #cbd5e1; margin-top: 2px; }
@@ -65,7 +65,7 @@
 
     .seat { position: absolute; transform: translate(-50%, -50%); width: 75px; display: flex; flex-direction: column; align-items: center; z-index: 10; transition: all 0.3s ease; }
     
-    .pos-0 { top: 85%; left: 50%; width: 185px; z-index: 20; }
+    .pos-0 { top: 88%; left: 50%; width: 185px; z-index: 20; }
     
     .pos-1 { top: 85%; left: 10%; }
     .pos-2 { top: 50%; left: -2%; }
@@ -76,7 +76,6 @@
 
     .avatar-box { background: rgba(15, 23, 42, 0.95); border: 2px solid #334155; border-radius: 8px; padding: 8px 4px 10px 4px; width: 100%; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.6); position: relative; }
     
-    /* --- TRANSPARENT POS-0 AVATAR BOX --- */
     .seat.pos-0 .avatar-box { background: transparent !important; border: none !important; box-shadow: none !important; animation: none !important; }
     .seat.pos-0 .name-txt, .seat.pos-0 .chips-txt { text-shadow: 0px 2px 4px rgba(0,0,0,1), 0px 0px 3px rgba(0,0,0,1); }
 
@@ -101,7 +100,7 @@
 
     .cards-tray { display: flex; justify-content: center; margin-top: 14px; pointer-events: none; position: relative; z-index: 5; } 
     
-    .seat.pos-0 .cards-tray { margin-top: 30px; } 
+    .seat.pos-0 .cards-tray { margin-top: 10px; } 
 
     .card { width: 28px; height: 40px; background: #fff; border-radius: 3px; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); position: relative; display: flex; align-items: center; justify-content: center; margin-left: -12px; border: 1px solid #cbd5e1; transition: transform 0.2s; }
     .card:first-child { margin-left: 0; }
@@ -135,8 +134,6 @@
     .seat.pos-0 .seat-status { font-size: 14px; padding: 5px 12px; bottom: -16px; }
     
     .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
-    
-    /* കാർഡുകൾക്ക് താഴെ വരാൻ അഡ്ജസ്റ്റ് ചെയ്തത് */
     .seat.pos-0 .btn-seat-action-overlay { 
       font-size: 14px; 
       padding: 8px 0; 
@@ -303,7 +300,6 @@
     <div style="display:flex; gap:4px; align-items:center;">
       <button class="btn-small btn-chat" onclick="openChatModal()">💬 ചാറ്റ് <span id="chatDot" style="display:none; color:#ef4444;">●</span></button>
       <button class="btn-small btn-history" onclick="showHistoryModal()">📜 ഹിസ്റ്ററി</button>
-      <!-- ഫുൾ സ്ക്രീൻ ടെക്സ്റ്റ് ബട്ടൺ -->
       <button id="fsToggle" class="btn-small" style="background:#475569; padding: 4px 8px; font-weight: bold;" onclick="toggleFullScreen()">ഫുൾ സ്ക്രീൻ</button>
       <button id="soundToggle" class="sound-toggle-btn" onclick="toggleSound()" title="ശബ്ദം">🔊</button>
       <span class="live-dot"></span><span style="color:#94a3b8; font-size:10px;">Live</span>
@@ -1434,7 +1430,7 @@
         
         if (state.turnStartTime) {
             var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
-            if (totalElapsedSinceTurnStart >= 420) { 
+            if (totalElapsedSinceTurnStart >= 420) { // 7 Minutes Reset Time
                  if (!isCheckingTimeout) {
                      isCheckingTimeout = true;
                      try {
