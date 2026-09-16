@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <title>ത്രീ ഏസസ് (Firebase Edition - Final Fix)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-felt: #064e3b; --card-bg: #ffffff; --accent: #38bdf8;
+      --gold: #f59e0b; --table-border: #45240f; --table-rim: #6b3e1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 5px;
+      background: radial-gradient(circle at center, #022c22 0%, #000000 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #f8fafc; display: flex; flex-direction: column; align-items: center;
+      min-height: 100vh; overflow-x: hidden;
+    }
+    
+    .rotate-msg { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 4px 10px; border-radius: 20px; font-size: 11px; margin-bottom: 8px; text-align: center; border: 1px solid var(--gold); }
+    @media screen and (orientation: landscape) { .rotate-msg { display: none; } }
+
+    .top-bar { width: 100%; max-width: 900px; background: rgba(15, 23, 42, 0.8); padding: 6px 12px; border-radius: 8px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; z-index: 100; margin-bottom: 10px; }
+    .sound-toggle-btn { background: none; border: none; color: #fcd34d; font-size: 16px; cursor: pointer; padding: 0 6px; }
+    .live-dot { height: 7px; width: 7px; background-color: #10b981; border-radius: 50%; display: inline-block; margin-right: 3px; animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .btn-small { background: #334155; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-left:4px;}
+    .btn-admin { background: #7c3aed; }
+    .btn-history { background: #0284c7; }
+    .btn-chat { background: #059669; }
+
+    .table-area { position: relative; width: 100%; max-width: 900px; height: 60vh; min-height: 380px; display: flex; align-items: center; justify-content: center; margin-top: 10px; }
+    
+    .table-chat-overlay { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); z-index: 150; display: flex; flex-direction: column; gap: 6px; width: 100%; align-items: center; pointer-events: none; }
+    .floating-chat-msg { background: rgba(15, 23, 42, 0.95); border: 1.5px solid #10b981; padding: 6px 14px; border-radius: 20px; color: #fff; font-size: 12px; font-weight: 800; animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 15px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; }
+    @keyframes popIn { 0% { opacity: 0; transform: translateY(10px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+    .chat-sender-overlay { color: #f59e0b; margin-right: 5px; }
+
+    .poker-table { position: relative; width: 88%; height: 80%; background: radial-gradient(ellipse at center, #059669 0%, #064e3b 100%); border: 14px solid var(--table-rim); border-radius: 50vw; box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 0 40px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+    .poker-table::after { content: ''; position: absolute; width: 94%; height: 90%; border: 2px solid rgba(255,255,255,0.1); border-radius: 50vw; pointer-events: none; }
+
+    .table-center { position: absolute; text-align: center; z-index: 5; background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); }
+    .pot-title { font-size: 10px; color: #94a3b8; font-weight: bold; letter-spacing: 1px; }
+    .pot-val { font-size: 28px; font-weight: 900; color: #34d399; text-shadow: 0 2px 10px rgba(0,0,0,0.8); line-height: 1.1; }
+    .stake-val { font-size: 10px; color: #cbd5e1; margin-top: 2px; }
+    .dealer-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); font-size: 9px; padding: 2px 8px; border-radius: 10px; margin-top: 5px; display: inline-block; border: 1px solid var(--gold); }
+
+    /* --- ADDED ANIMATED EMOJI WOMAN CSS --- */
+    @keyframes floatDealer {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-6px) scale(1.05); }
+    }
+    .dealer-woman {
+      font-size: 45px;
+      margin-bottom: 5px;
+      animation: floatDealer 2.5s infinite ease-in-out;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8));
+      transition: all 0.3s ease;
+      line-height: 1.1;
+    }
+
+    .seat { position: absolute; transform: translate(-50%, -50%); width: 75px; display: flex; flex-direction: column; align-items: center; z-index: 10; transition: all 0.3s ease; }
+    
+    /* 1. Expand the main seat container (75px * 2.5 = ~185px) and lift it slightly to clear action board */
+    .pos-0 { top: 85%; left: 50%; width: 185px; z-index: 20; }
+    
+    .pos-1 { top: 85%; left: 10%; }
+    .pos-2 { top: 50%; left: -2%; }
+    .pos-3 { top: 10%; left: 20%; }
+    .pos-4 { top: 10%; left: 80%; }
+    .pos-5 { top: 50%; left: 102%; }
+    .pos-6 { top: 85%; left: 90%; }
+
+    .avatar-box { background: rgba(15, 23, 42, 0.95); border: 2px solid #334155; border-radius: 8px; padding: 8px 4px 10px 4px; width: 100%; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.6); position: relative; }
+    .seat.empty .avatar-box { border: 1px dashed #475569; background: rgba(15, 23, 42, 0.4); opacity: 0.8; padding: 6px 4px; }
+    .seat.active .avatar-box { border-color: var(--accent); box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); animation: pulseSeat 1.5s infinite; z-index: 30; }
+    @keyframes pulseSeat { 0% { box-shadow: 0 0 5px rgba(56,189,248,0.4); } 50% { box-shadow: 0 0 20px rgba(56,189,248,0.8); } 100% { box-shadow: 0 0 5px rgba(56,189,248,0.4); } }
+    .seat.folded .avatar-box { opacity: 0.5; filter: grayscale(100%); }
+    
+    .name-txt { font-size: 11px; font-weight: bold; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+    .chips-txt { font-size: 11px; color: #fbbf24; font-weight: 800; margin-top: 2px; }
+    
+    .seat-status { font-size: 10px; padding: 3px 8px; border-radius: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 2px 6px rgba(0,0,0,0.6); position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); z-index: 20; white-space: nowrap; }
+    .bg-blind { background: #f59e0b; color: #000; box-shadow: 0 0 8px rgba(245,158,11,0.6); }
+    .bg-seen { background: #10b981; color: #fff; box-shadow: 0 0 8px rgba(16,185,129,0.6); }
+    .bg-folded { background: #ef4444; color: #fff; opacity: 0.9; }
+
+    .dealer-chip { position: absolute; top: -8px; right: -8px; background: #e11d48; color: #fff; font-size: 8px; font-weight: 900; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 60; }
+    
+    .timer-overlay { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #38bdf8; font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 12px; border: 2px solid #38bdf8; box-shadow: 0 4px 10px rgba(0,0,0,0.8); z-index: 100; white-space: nowrap; }
+    .timer-urgent { background: #dc2626; color: #fff; border-color: #fff; animation: pulseTimer 0.5s infinite alternate; }
+    @keyframes pulseTimer { 0% { transform: translateX(-50%) scale(1); } 100% { transform: translateX(-50%) scale(1.1); } }
+
+    .cards-tray { display: flex; justify-content: center; margin-top: 14px; pointer-events: none; position: relative; z-index: 5; } 
+    
+    /* 2. Push the cards tray further down so it doesn't overlap the avatar */
+    .seat.pos-0 .cards-tray { margin-top: 30px; } 
+
+    .card { width: 28px; height: 40px; background: #fff; border-radius: 3px; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); position: relative; display: flex; align-items: center; justify-content: center; margin-left: -12px; border: 1px solid #cbd5e1; transition: transform 0.2s; }
+    .card:first-child { margin-left: 0; }
+    .card:nth-child(1) { transform: rotate(-12deg) translateY(2px); z-index: 1; }
+    .card:nth-child(2) { transform: rotate(0deg) translateY(0); z-index: 2; }
+    .card:nth-child(3) { transform: rotate(12deg) translateY(2px); z-index: 3; }
+    
+    /* 3. Scale up the cards (28x40 * 2.5 = 70x100) and adjust overlap spacing */
+    .seat.pos-0 .card { 
+      width: 70px; 
+      height: 100px; 
+      margin-left: -30px; 
+      border-radius: 6px; 
+      border: 3px solid #cbd5e1; 
+    }
+    
+    .card-red { color: #dc2626; } .card-black { color: #0f172a; }
+    .corner-val { position: absolute; top: 2px; left: 2px; font-size: 8px; font-weight: 900; line-height: 1; font-family: Georgia, serif; }
+    .corner-suit { position: absolute; top: 10px; left: 2px; font-size: 7px; }
+    
+    /* 4. Scale up the values, suits, and symbols inside the cards */
+    .seat.pos-0 .corner-val { font-size: 20px; left: 5px; top: 4px; }
+    .seat.pos-0 .corner-suit { font-size: 18px; left: 5px; top: 26px; }
+    .center-symbol { font-size: 14px; } 
+    .seat.pos-0 .center-symbol { font-size: 40px; }
+    .card-joker { border: 1px solid var(--gold); background: #fffdf0; } 
+    .seat.pos-0 .card-joker { border-width: 3px; }
+    .joker-star { color: var(--gold); font-size: 12px; } 
+    .seat.pos-0 .joker-star { font-size: 35px; }
+
+    /* 5. Scale up the avatar text, chips, status badges, and action buttons */
+    .seat.pos-0 .name-txt { font-size: 18px; margin-top: 4px; }
+    .seat.pos-0 .chips-txt { font-size: 16px; margin-top: 6px; }
+    .seat.pos-0 .seat-status { font-size: 14px; padding: 5px 12px; bottom: -16px; }
+    .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
+    
+    /* 'നോക്കുക' ബട്ടൺ കാണാൻ കഴിയുന്ന രീതിയിൽ മുകളിലേക്ക് മാറ്റി സ്ഥാപിച്ചു */
+    .seat.pos-0 .btn-seat-action { 
+      font-size: 15px; 
+      padding: 10px 0; 
+      position: absolute; 
+      top: -50px; 
+      width: 100%; 
+      z-index: 50; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+      border: 1px solid #38bdf8;
+      border-radius: 6px;
+    }
+
+    .card-back { width: 28px; height: 40px; background: #1e3a8a; border-radius: 3px; border: 1px solid #fff; margin-left: -12px; transform: rotate(0deg) !important; background-image: repeating-linear-gradient(45deg, #1d4ed8 0, #1d4ed8 2px, #1e3a8a 0, #1e3a8a 4px); }
+    .card-back:first-child { margin-left: 0; }
+    
+    .btn-leave-small { background: #b91c1c; }
+
+    .action-board { width: 100%; max-width: 900px; background: rgba(15, 23, 42, 0.95); padding: 12px; border-radius: 12px; border: 1px solid #334155; margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; z-index: 100; }
+    @media screen and (max-width: 600px) { .action-board { grid-template-columns: repeat(2, 1fr); } }
+    .action-board button { padding: 12px 8px; border: none; border-radius: 6px; font-size: 12px; font-weight: 800; cursor: pointer; color: #fff; transition: transform 0.1s; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    .action-board button:active { transform: scale(0.96); }
+    .action-board button:disabled { background: #334155 !important; color: #64748b !important; cursor: not-allowed; text-shadow: none; opacity: 0.7; }
+    .btn-deal { background: linear-gradient(to bottom, #10b981, #059669); grid-column: 1 / -1; font-size: 14px; }
+    .btn-bet { background: linear-gradient(to bottom, #3b82f6, #2563eb); }
+    .btn-raise { background: linear-gradient(to bottom, #6366f1, #4f46e5); }
+    .btn-showdown { background: linear-gradient(to bottom, #f59e0b, #d97706); }
+    .btn-fold { background: linear-gradient(to bottom, #ef4444, #dc2626); }
+    .btn-find-dealer { background: linear-gradient(to bottom, #f59e0b, #d97706); grid-column: 1 / -1; font-size: 14px; }
+
+    .console { background: #020617; border-left: 4px solid var(--accent); padding: 8px 12px; font-size: 11px; border-radius: 0 6px 6px 0; margin-top: 10px; width: 100%; max-width: 900px; color: #cbd5e1; }
+
+    .winner-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, rgba(6,78,59,0.96) 0%, rgba(2,44,34,0.98) 100%); backdrop-filter: blur(12px); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; animation: zoomIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes zoomIn { 0% { opacity: 0; transform: scale(0.6); } 100% { opacity: 1; transform: scale(1); } }
+    .splash-trophy { font-size: 80px; filter: drop-shadow(0 0 25px #f59e0b); }
+    .splash-title { font-size: 24px; color: #fcd34d; font-weight: 800; text-transform: uppercase; margin-top: 10px; }
+    .splash-winner-name { font-size: 34px; font-weight: 900; color: #ffffff; margin: 15px 20px; padding: 10px 24px; }
+    .splash-pot-box { font-size: 28px; color: #34d399; font-weight: 800; }
+
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .modal-box { background: #0f172a; border: 2px solid #334155; border-radius: 12px; padding: 20px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); }
+    .modal-title { font-size: 18px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }
+    .modal-desc { font-size: 13px; color: #cbd5e1; margin-bottom: 14px; line-height: 1.4; }
+    
+    .history-list { max-height: 250px; overflow-y: auto; text-align: left; font-size: 11px; display: flex; flex-direction: column; gap: 6px; padding: 5px; }
+    .history-item { background: #1e293b; padding: 8px; border-radius: 6px; border: 1px solid #334155; }
+    .history-winner { color: #34d399; font-weight: bold; font-size: 12px; }
+    .history-time { color: #64748b; font-size: 9px; float: right; }
+
+    .admin-player-item { background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 6px; display: flex; flex-direction: column; gap: 8px; }
+    .admin-player-header { display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 13px; font-weight: bold; }
+    .admin-controls { display: flex; gap: 6px; }
+    .admin-input { flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #38bdf8; font-weight: bold; text-align: center; }
+    .btn-kick { background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight:bold; }
+    .btn-update { background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight:bold; }
+    
+    .quick-chat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; overflow-y: auto; max-height: 300px; }
+    .btn-quick-chat { background: #1e293b; border: 1px solid #38bdf8; color: #e0f2fe; border-radius: 8px; font-size: 13px; padding: 12px 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+    .btn-quick-chat:active { transform: scale(0.95); background: #0ea5e9; }
+
+    input:focus, select:focus { outline: none; border-color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <div id="nameModal" class="modal-backdrop" style="display: none; z-index: 200000;">
+    <div class="modal-box" style="border-color: #38bdf8;">
+      <div class="modal-title" style="color: #38bdf8;">ഗെയിമിലേക്ക് സ്വാഗതം</div>
+      <div class="modal-desc" style="color: #cbd5e1;">കളിയിൽ പങ്കെടുക്കാൻ പേരും റൂമും നൽകുക:</div>
+      
+      <div style="text-align: left; color: #94a3b8; font-size: 11px; margin-bottom: 4px;">നിങ്ങളുടെ പേര്:</div>
+      <input type="text" id="playerNameInput" placeholder="ഉദാ: Abin..." style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; margin-bottom: 10px; font-size: 16px; text-align: center;" autocomplete="off">
+      
+      <div style="text-align: left; color: #94a3b8; font-size: 11px; margin-bottom: 4px;">റൂം തിരഞ്ഞെടുക്കുക (1 മുതൽ 20 വരെ):</div>
+      <select id="roomSelectInput" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; margin-bottom: 20px; font-size: 16px; text-align: center; cursor:pointer;"></select>
+
+      <button onclick="saveName()" style="width: 100%; background: #0ea5e9; padding: 12px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; font-size: 16px;">തുടങ്ങാം</button>
+    </div>
+  </div>
+
+  <div id="chatModal" class="modal-backdrop" style="display: none; z-index: 170000;">
+    <div class="modal-box" style="border-color: #059669; max-width: 380px; padding: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div class="modal-title" style="color: #34d399; margin: 0; font-size: 16px;">💬 മെസ്സേജ് അയക്കുക</div>
+        <button onclick="closeChatModal()" style="background:none; border:none; color:#cbd5e1; font-size:18px; cursor:pointer;">✖</button>
+      </div>
+      <div class="modal-desc" style="color: #94a3b8; font-size: 11px; margin-bottom: 10px;">താഴെ കാണുന്നതിൽ നിന്നും ഒരു മെസ്സേജ് തിരഞ്ഞെടുക്കുക:</div>
+
+      <div class="quick-chat-grid">
+        <button class="btn-quick-chat" onclick="sendQuickMsg('വേഗം വെക്കൂ ⏳')">വേഗം വെക്കൂ ⏳</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('ഷോഡൗൺ? 👀')">ഷോഡൗൺ? 👀</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('കിടിലൻ കളി 🔥')">കിടിലൻ കളി 🔥</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('ഞാൻ ഫോൾഡ് 🏃‍♂️')">ഞാൻ ഫോൾഡ് 🏃‍♂️</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('ഭാഗ്യം കൂടെയാ 🤑')">ഭാഗ്യം കൂടെയാ 🤑</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('ഇരട്ടി വെക്കട്ടേ? 😈')">ഇരട്ടി വെക്കട്ടേ? 😈</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('കളി മാറുന്നു 🌪️')">കളി മാറുന്നു 🌪️</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('അയ്യോ! പോയി 😭')">അയ്യോ! പോയി 😭</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('കാർഡ് പോരാ 👎')">കാർഡ് പോരാ 👎</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('പണി പാളിയോ? 🤔')">പണി പാളിയോ? 🤔</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('എന്താ ഒരു മൗനം? 🤐')">എന്താ ഒരു മൗനം? 🤐</button>
+        <button class="btn-quick-chat" onclick="sendQuickMsg('അടിപൊളി! 👏')">അടിപൊളി! 👏</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="historyModal" class="modal-backdrop" style="display: none; z-index: 150000;">
+    <div class="modal-box" style="border-color: #0284c7; max-width: 420px;">
+      <div class="modal-title" style="color: #38bdf8;">📜 കളിയുടെ ഹിസ്റ്ററി</div>
+      <div class="history-list" id="historyContainer">
+        <div style="text-align:center; color:#64748b; padding:10px;">വിവരങ്ങൾ ലഭ്യമല്ല...</div>
+      </div>
+      <button onclick="document.getElementById('historyModal').style.display='none'" style="width: 100%; background: #475569; padding: 8px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 10px;">ക്ലോസ് ചെയ്യുക</button>
+    </div>
+  </div>
+
+  <div id="adminAuthModal" class="modal-backdrop" style="display: none; z-index: 260000;">
+    <div class="modal-box" style="border-color: #7c3aed; max-width: 320px;">
+      <div class="modal-title" style="color: #7c3aed;">അഡ്മിൻ പാസ്‌വേഡ്</div>
+      <input type="password" id="adminPwdInput" placeholder="Password..." style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; margin-bottom: 15px; font-size: 16px; text-align: center;">
+      <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('adminAuthModal').style.display='none'" style="flex:1; background: #475569; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer;">ക്ലോസ്</button>
+        <button onclick="verifyAdmin()" style="flex:1; background: #7c3aed; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer;">തുറക്കുക</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminPanelModal" class="modal-backdrop" style="display: none; z-index: 250000;">
+    <div class="modal-box" style="border-color: #7c3aed; max-width: 420px; padding: 15px;">
+      <div class="modal-title" style="color: #7c3aed;">⚡ അഡ്മിൻ പാനൽ</div>
+      <div class="modal-desc" style="color: #cbd5e1; margin-bottom:10px;">കളിക്കാരെ പുറത്താക്കുകയോ തുക തിരുത്തുകയോ ചെയ്യാം.</div>
+      <div id="adminPlayersList" style="max-height: 350px; overflow-y: auto; text-align: left; margin-bottom:15px; padding-right: 5px;"></div>
+      <hr style="border: 1px solid #334155; margin: 10px 0;">
+      <button onclick="dispatchAction('adminResetTable', '555')" style="width: 100%; background: #b91c1c; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; margin-bottom: 10px;">ടേബിൾ റീസെറ്റ് ചെയ്യുക (Reset All)</button>
+      <button onclick="document.getElementById('adminPanelModal').style.display='none'" style="width: 100%; background: #475569; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer;">ക്ലോസ് ചെയ്യുക</button>
+    </div>
+  </div>
+
+  <div id="winnerSplash" class="winner-splash" style="display: none;">
+    <div class="splash-trophy">🏆</div>
+    <div class="splash-title">✨ റൗണ്ട് വിജയി ✨</div>
+    <div class="splash-winner-name" id="splashWinnerName">വിജയി</div>
+    <div class="splash-pot-box" id="splashPot">0 രൂപ നേടി!</div>
+  </div>
+
+  <div class="rotate-msg">📱 മികച്ച ദൃശ്യാനുഭവത്തിന് ഫോൺ ലാൻഡ്സ്കേപ്പിൽ പിടിക്കുക</div>
+
+  <div class="top-bar">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div style="background:#b45309; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:10px; border:1px solid #f59e0b;" onclick="changeName()">റൂം <span id="roomBadge">1</span> 🔄</div>
+      <span><strong id="userBadge" style="color:var(--accent);">അജ്ഞാതൻ</strong></span>
+    </div>
+    
+    <div style="display:flex; gap:4px; align-items:center;">
+      <button class="btn-small btn-chat" onclick="openChatModal()">💬 ചാറ്റ് <span id="chatDot" style="display:none; color:#ef4444;">●</span></button>
+      <button class="btn-small btn-history" onclick="showHistoryModal()">📜 ഹിസ്റ്ററി</button>
+      <button id="fsToggle" class="sound-toggle-btn" onclick="toggleFullScreen()" title="ഫുൾ സ്ക്രീൻ">🔲</button>
+      <button id="soundToggle" class="sound-toggle-btn" onclick="toggleSound()" title="ശബ്ദം">🔊</button>
+      <span class="live-dot"></span><span style="color:#94a3b8; font-size:10px;">Live</span>
+      <button class="btn-small btn-admin" onclick="openAdminPanel()">⚡ അഡ്മിൻ</button>
+    </div>
+  </div>
+
+  <div class="table-area">
+    <div class="table-chat-overlay" id="tableChatOverlay"></div>
+    <div class="poker-table" id="pokerTable"></div>
+  </div>
+
+  <div class="action-board">
+    <button id="findDealerBtn" class="btn-find-dealer" onclick="dispatchAction('drawDealer')" style="display:none;">🎯 ഡീലറെ കണ്ടെത്തുക</button>
+    <button id="dealBtn" class="btn-deal" onclick="dispatchAction('dealNewHand')" style="display:none;">പുതിയ കൈ നൽകുക (Deal)</button>
+    
+    <button id="betBtn" class="btn-bet" onclick="dispatchAction('placeBet', 1)">ബെറ്റ് വെക്കുക</button>
+    <button id="raiseBtn" class="btn-raise" onclick="dispatchAction('placeBet', 2)">ഇരട്ടി ബെറ്റ്</button>
+    <button id="showdownBtn" class="btn-showdown" onclick="dispatchAction('callShowdown')">ഷോഡൗൺ</button>
+    <button id="foldBtn" class="btn-fold" onclick="dispatchAction('foldCurrentPlayer')">ഫോൾഡ് ചെയ്യുക</button>
+  </div>
+  
+  <div class="console" id="consoleMsg">കണക്ട് ചെയ്യുന്നു...</div>
+
+  <script>
+    function setCookie(cname, cvalue, exdays) {
+      var d = new Date();
+      d.setTime(d.getTime() + (exdays*24*60*60*1000));
+      var expires = "expires="+ d.toUTCString();
+      document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+    function getCookie(cname) {
+      var name = cname + "=";
+      var ca = decodeURIComponent(document.cookie).split(';');
+      for(var i = 0; i <ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') { c = c.substring(1); }
+        if (c.indexOf(name) == 0) { return c.substring(name.length, c.length); }
+      }
+      return "";
+    }
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB0rmdjHswWH8VirLUq8Y2IbDp_8NZvVMQ",
+      authDomain: "threeacesgame.firebaseapp.com",
+      projectId: "threeacesgame",
+      storageBucket: "threeacesgame.firebasestorage.app",
+      messagingSenderId: "963506832902",
+      appId: "1:963506832902:web:0aa0705574b4cecf406587",
+      measurementId: "G-RTVPP8Z3KP",
+      databaseURL: "https://threeacesgame-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    window.dbRef = null; 
+    window.currentRoom = 'room1';
+
+    const TURN_TIMEOUT_SEC = 30;
+    const MAX_PLAYERS = 7;
+    const ADMIN_PASSWORD = '555';
+
+    var prevRoundId = -1, prevPot = 0, lastCelebratedRound = -1, prevTurnName = '', prevRemainingSec = -1;
+    var soundEnabled = true;
+
+    window.myName = '';
+    window.lastState = null;
+    window.activeFloatingChats = [];
+
+    window.SoundFX = {
+      ctx: null,
+      init: function() {
+        if (!this.ctx) { 
+           var AudioCtx = window.AudioContext || window.webkitAudioContext; 
+           if (AudioCtx) this.ctx = new AudioCtx(); 
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playDeal: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+        osc.type = 'triangle'; 
+        osc.frequency.setValueAtTime(320, this.ctx.currentTime); 
+        osc.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime); 
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
+        osc.connect(gain); gain.connect(this.ctx.destination); 
+        osc.start(this.ctx.currentTime); 
+        osc.stop(this.ctx.currentTime + 0.15);
+      },
+      playChip: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        [2000, 2600, 3400].forEach((freq, i) => {
+          var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+          osc.type = 'sine'; 
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.03);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime + i * 0.03); 
+          gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + i * 0.03 + 0.08);
+          osc.connect(gain); gain.connect(this.ctx.destination); 
+          osc.start(this.ctx.currentTime + i * 0.03); 
+          osc.stop(this.ctx.currentTime + i * 0.03 + 0.1);
+        });
+      },
+      playTurn: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+          osc.type = 'sine'; 
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+          gain.gain.setValueAtTime(0.25, this.ctx.currentTime + i * 0.08); 
+          gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + i * 0.08 + 0.25);
+          osc.connect(gain); gain.connect(this.ctx.destination); 
+          osc.start(this.ctx.currentTime + i * 0.08); 
+          osc.stop(this.ctx.currentTime + i * 0.08 + 0.28);
+        });
+      },
+      playTick: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+        osc.type = 'square'; 
+        osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime); 
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(this.ctx.destination); 
+        osc.start(this.ctx.currentTime); 
+        osc.stop(this.ctx.currentTime + 0.06);
+      },
+      playFold: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(240, this.ctx.currentTime); 
+        osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime); 
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.25);
+        osc.connect(gain); gain.connect(this.ctx.destination); 
+        osc.start(this.ctx.currentTime); 
+        osc.stop(this.ctx.currentTime + 0.28);
+      },
+      playWin: function() {
+        if (!soundEnabled) return; this.init(); if (!this.ctx) return;
+        var notes = [{ f: 523.25, d: 0.12 }, { f: 659.25, d: 0.12 }, { f: 783.99, d: 0.14 }, { f: 1046.50, d: 0.45 }];
+        var t = this.ctx.currentTime;
+        notes.forEach(n => {
+          var osc = this.ctx.createOscillator(); var gain = this.ctx.createGain();
+          osc.type = 'triangle'; 
+          osc.frequency.setValueAtTime(n.f, t);
+          gain.gain.setValueAtTime(0.35, t); 
+          gain.gain.linearRampToValueAtTime(0, t + n.d);
+          osc.connect(gain); gain.connect(this.ctx.destination); 
+          osc.start(t); 
+          osc.stop(t + n.d + 0.05); 
+          t += n.d + 0.03;
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", function() {
+        if (document.hidden) {
+            if (window.SoundFX && window.SoundFX.ctx) window.SoundFX.ctx.suspend();
+        } else {
+            if (window.SoundFX && window.SoundFX.ctx && soundEnabled) window.SoundFX.ctx.resume();
+        }
+    });
+
+    window.playVoiceMessage = function(text) {
+      try {
+        if (!soundEnabled) return;
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel(); 
+          var cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '').trim();
+          if (cleanText.length > 0) {
+            var msg = new SpeechSynthesisUtterance();
+            msg.text = cleanText;
+            msg.lang = 'ml-IN'; 
+            msg.rate = 1.0; 
+            window.speechSynthesis.speak(msg);
+          }
+        }
+      } catch(e) {}
+    };
+
+    window.renderUI = function(state) {
+        if (!state) return;
+        document.getElementById('consoleMsg').innerText = state.message || "Ready...";
+        var cleanUser = (window.myName || '').toLowerCase().trim();
+
+        if (state.roundId && state.roundId !== prevRoundId && !state.gameOver) { prevRoundId = state.roundId; window.SoundFX.playDeal(); }
+        if (state.pot > prevPot && !state.gameOver) { window.SoundFX.playChip(); }
+        prevPot = state.pot;
+        if (state.gameOver && state.lastWinnerName && state.roundId !== lastCelebratedRound) { 
+           lastCelebratedRound = state.roundId; window.SoundFX.playWin();
+           var splash = document.getElementById('winnerSplash');
+           document.getElementById('splashWinnerName').innerText = state.lastWinnerName;
+           document.getElementById('splashPot').innerText = state.pot + ' രൂപ നേടി!';
+           splash.style.display = 'flex'; setTimeout(() => { splash.style.display = 'none'; }, 3500);
+        }
+
+        var activePlayer = state.players[state.activePlayerIndex];
+        var isMyTurn = (!state.gameOver && activePlayer && activePlayer.isOccupied && activePlayer.name.toLowerCase() === cleanUser);
+        
+        if (isMyTurn && prevTurnName !== cleanUser) {
+            window.SoundFX.playTurn();
+            try { if (soundEnabled && navigator.vibrate) navigator.vibrate([150, 100, 150]); } catch(e){}
+        }
+        
+        prevTurnName = activePlayer ? activePlayer.name.toLowerCase().trim() : '';
+
+        // -- BET AMOUNT LOGIC FIX --
+        var prevPlayer = null;
+        for (var i = 1; i < state.players.length; i++) {
+            var checkIdx = (state.activePlayerIndex + i) % state.players.length;
+            var p = state.players[checkIdx];
+            if (p.isOccupied && !p.folded) { prevPlayer = p; break; }
+        }
+
+        var betBtn = document.getElementById('betBtn'), raiseBtn = document.getElementById('raiseBtn');
+        var displayCost = state.currentStake;
+        
+        if (activePlayer && !activePlayer.isBlind) {
+            if (prevPlayer && !prevPlayer.isBlind) {
+                displayCost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ബെറ്റ് അടിസ്ഥാന തുകയാക്കുന്നു
+            } else {
+                displayCost = state.currentStake * 2;
+            }
+        }
+        
+        betBtn.innerText = 'ബെറ്റ് (' + displayCost + ' രൂപ)'; raiseBtn.innerText = 'ഇരട്ടി (' + (displayCost * 2) + ' രൂപ)';
+        betBtn.disabled = !isMyTurn; raiseBtn.disabled = !isMyTurn;
+        document.getElementById('showdownBtn').disabled = !isMyTurn; document.getElementById('foldBtn').disabled = !isMyTurn;
+
+        var findDealerBtn = document.getElementById('findDealerBtn'), dealBtn = document.getElementById('dealBtn');
+        var cleanWinner = (state.lastWinnerName || '').toLowerCase().trim();
+        if (!state.dealerSelected && !state.lastWinnerName) {
+          findDealerBtn.style.display = 'block'; dealBtn.style.display = 'none'; betBtn.style.display = 'none'; raiseBtn.style.display = 'none'; document.getElementById('showdownBtn').style.display = 'none'; document.getElementById('foldBtn').style.display = 'none';
+        } else {
+          findDealerBtn.style.display = 'none';
+          if (!state.gameOver) {
+            dealBtn.style.display = 'none'; betBtn.style.display = 'block'; raiseBtn.style.display = 'block'; document.getElementById('showdownBtn').style.display = 'block'; document.getElementById('foldBtn').style.display = 'block';
+          } else {
+            dealBtn.style.display = 'block'; betBtn.style.display = 'none'; raiseBtn.style.display = 'none'; document.getElementById('showdownBtn').style.display = 'none'; document.getElementById('foldBtn').style.display = 'none';
+            dealBtn.disabled = (cleanWinner && cleanWinner !== cleanUser);
+            dealBtn.innerText = dealBtn.disabled ? 'ഡീലർ ഡീൽ ചെയ്യട്ടെ 🔒' : 'പുതിയ കൈ നൽകുക (Deal)';
+          }
+        }
+
+        var isUserAlreadySeated = state.players.some(p => p.isOccupied && p.name.toLowerCase() === cleanUser);
+        var myIndex = state.players.findIndex(p => p.isOccupied && p.name.toLowerCase() === cleanUser);
+        var offset = myIndex !== -1 ? (7 - myIndex) % 7 : 0;
+
+        // --- EMOJI WOMAN LOGIC ---
+        var face = '👩‍💼'; // Default Professional Dealer
+        var msg = state.message || '';
+
+        if (state.gameOver) {
+            face = '🥳'; // Celebrating a win
+        } else if (msg.includes('ഫോൾഡ്')) {
+            face = '🥱'; // Yawning or sighing
+        } else if (msg.includes('ബെറ്റ്')) {
+            face = state.pot > 500 ? '🤑' : '😏'; // Excited for big pot
+        } else if (msg.includes('ഷോഡൗൺ')) {
+            face = '😲'; // Shocked or tense
+        } else if (msg.includes('കാർഡുകൾ കണ്ടു')) {
+            face = '👀'; // Looking intently
+        }
+
+        var tableHtml = '<div class="table-center">';
+        tableHtml += '<div class="dealer-woman">' + face + '</div>';
+        tableHtml += '<div class="pot-title">TOTAL POT</div><div class="pot-val">₹' + state.pot + '</div><div class="stake-val">അടിസ്ഥാന ബെറ്റ്: ₹' + state.currentStake + '</div>';
+        if (state.lastWinnerName) tableHtml += '<div class="dealer-badge">🃏 ഡീലർ: ' + state.lastWinnerName + '</div>';
+        tableHtml += '</div>';
+
+        state.players.forEach((p, idx) => {
+          var displayIndex = (idx + offset) % 7;
+          var isActive = (idx === state.activePlayerIndex && !state.gameOver && p.isOccupied);
+          var isMe = (p.isOccupied && p.name.toLowerCase() === cleanUser);
+          var isDealer = (p.isOccupied && state.lastWinnerName && p.name.toLowerCase() === state.lastWinnerName.toLowerCase());
+          var stateClasses = 'seat pos-' + displayIndex + (isActive ? ' active' : '') + (!p.isOccupied ? ' empty' : '') + (p.folded && p.isOccupied ? ' folded' : '');
+
+          tableHtml += '<div class="' + stateClasses + '"><div class="avatar-box">';
+          if (isDealer) tableHtml += '<div class="dealer-chip">D</div>';
+          
+          if (p.isOccupied) {
+            var statusText = p.folded ? 'ഫോൾഡ്' : (p.isBlind ? 'ബ്ലൈൻഡ്' : 'സീൻ');
+            var badgeClass = p.folded ? 'bg-folded' : (p.isBlind ? 'bg-blind' : 'bg-seen');
+            tableHtml += '<div class="name-txt">' + p.name + '</div><div class="chips-txt">₹' + p.chips + '</div><div class="seat-status ' + badgeClass + '">' + statusText + '</div>';
+          } else {
+            tableHtml += '<div class="name-txt" style="margin-top:2px;">സീറ്റ് ' + (idx + 1) + '</div>';
+            if (!isUserAlreadySeated && cleanUser !== '') {
+               tableHtml += '<button class="btn-seat-action" onclick="dispatchAction(\'takeSeat\', ' + idx + ')">ഇരിക്കുക</button>';
+            }
+          }
+          
+          tableHtml += '<div id="timer_seat_' + idx + '" class="timer-overlay" style="display:none;"></div>';
+          tableHtml += '</div>';
+
+          if (p.isOccupied && p.cards && p.cards.length > 0) {
+            tableHtml += '<div class="cards-tray">';
+            if ((isMe && p.hasSeen) || state.gameOver) {
+               p.cards.forEach(c => {
+                 var isRed = (c.suit === '♥' || c.suit === '♦');
+                 var cardColor = isRed ? 'card-red' : 'card-black';
+                 var jokerClass = c.isJoker ? 'card-joker' : '';
+                 tableHtml += '<div class="card ' + cardColor + ' ' + jokerClass + '">';
+                 tableHtml += '<span class="corner-val">' + c.label + '</span><span class="corner-suit">' + c.suit + '</span>';
+                 tableHtml += c.isJoker ? '<span class="joker-star">★</span>' : '<span class="center-symbol">' + c.suit + '</span>';
+                 tableHtml += '</div>';
+               });
+            } else {
+               for (var b = 0; b < 3; b++) tableHtml += '<div class="card-back"></div>';
+            }
+            tableHtml += '</div>';
+          }
+
+          if (p.isOccupied && isMe) {
+            if (!p.hasSeen && !p.folded && !state.gameOver && p.cards.length > 0) {
+               tableHtml += '<button class="btn-seat-action" style="background:#475569;" onclick="dispatchAction(\'lookAtCards\', ' + p.id + ')">നോക്കുക (See)</button>';
+            }
+            if (state.gameOver || p.folded) {
+               tableHtml += '<button class="btn-seat-action btn-leave-small" onclick="dispatchAction(\'leaveSeat\', ' + idx + ')">സീറ്റ് ഒഴിയുക</button>';
+            }
+          }
+          tableHtml += '</div>';
+        });
+        
+        document.getElementById('pokerTable').innerHTML = tableHtml;
+
+        if (document.getElementById('adminPanelModal').style.display === 'flex') {
+            window.renderAdminPanel();
+        }
+        
+        window.updateTimersLive(state);
+    }
+
+    function populateRooms() {
+      var select = document.getElementById('roomSelectInput');
+      select.innerHTML = '';
+      for(var i = 1; i <= 20; i++) {
+        var opt = document.createElement('option');
+        opt.value = 'room' + i;
+        opt.innerHTML = 'റൂം ' + i;
+        select.appendChild(opt);
+      }
+    }
+
+    function initUser() {
+      populateRooms();
+      
+      var storedName = '';
+      var storedRoom = '';
+      try { 
+        storedName = localStorage.getItem('BRAG_USER_NAME') || ''; 
+        storedRoom = localStorage.getItem('BRAG_ROOM_ID') || 'room1';
+      } catch(e) {}
+      
+      if (!storedName || !storedName.trim()) storedName = getCookie('BRAG_USER_NAME');
+      if (!storedRoom || !storedRoom.trim()) storedRoom = getCookie('BRAG_ROOM_ID') || 'room1';
+
+      window.currentRoom = storedRoom;
+
+      if (!storedName || !storedName.trim()) {
+         document.getElementById('userBadge').innerText = "അജ്ഞാതൻ";
+         document.getElementById('roomSelectInput').value = window.currentRoom;
+         document.getElementById('nameModal').style.display = 'flex';
+      } else {
+         window.myName = storedName.trim();
+         document.getElementById('userBadge').innerText = window.myName;
+         connectToFirebaseRoom(window.currentRoom);
+      }
+    }
+
+    window.saveName = function() {
+      var val = document.getElementById('playerNameInput').value;
+      if (!val || !val.trim()) val = "Guest" + Math.floor(Math.random() * 1000);
+      window.myName = val.trim();
+      
+      var selectedRoom = document.getElementById('roomSelectInput').value;
+      window.currentRoom = selectedRoom;
+
+      try { 
+        localStorage.setItem('BRAG_USER_NAME', window.myName); 
+        localStorage.setItem('BRAG_ROOM_ID', window.currentRoom); 
+      } catch(e) {}
+      setCookie('BRAG_USER_NAME', window.myName, 365); 
+      setCookie('BRAG_ROOM_ID', window.currentRoom, 365); 
+
+      document.getElementById('userBadge').innerText = window.myName;
+      document.getElementById('nameModal').style.display = 'none';
+      
+      connectToFirebaseRoom(window.currentRoom);
+    }
+
+    window.changeName = function() {
+      document.getElementById('playerNameInput').value = window.myName || '';
+      document.getElementById('roomSelectInput').value = window.currentRoom;
+      document.getElementById('nameModal').style.display = 'flex';
+    }
+
+    const consoleMsg = document.getElementById('consoleMsg');
+
+    db.ref(".info/connected").on("value", (snap) => {
+      if (snap.val() === true) {
+        if(window.currentRoom) {
+           consoleMsg.innerText = "റൂം " + window.currentRoom.replace('room', '') + " കണക്ട് ആയി!";
+        }
+      } else {
+        consoleMsg.innerText = "കണക്ട് ചെയ്യുന്നു... കാത്തിരിക്കുക.";
+      }
+    });
+
+    window.connectToFirebaseRoom = function(roomId) {
+      document.getElementById('roomBadge').innerText = roomId.replace('room', '');
+      consoleMsg.innerText = "റൂം " + roomId.replace('room', '') + "-ലേക്ക് കണക്ട് ചെയ്യുന്നു...";
+      
+      if (window.dbRef) {
+          window.dbRef.off('value'); 
+      }
+
+      window.dbRef = db.ref(roomId);
+      
+      var isInitialLoad = true;
+      var lastChatTime = 0;
+      window.activeFloatingChats = []; 
+
+      window.dbRef.on('value', (snapshot) => {
+        var state = snapshot.val();
+        if (state) {
+          
+          if (state.players && !Array.isArray(state.players)) state.players = Object.values(state.players);
+          if (state.history && !Array.isArray(state.history)) state.history = Object.values(state.history);
+          if (state.chats && !Array.isArray(state.chats)) state.chats = Object.values(state.chats);
+
+          if (!state.players || !Array.isArray(state.players)) state.players = getInitialState().players;
+          window.lastState = state;
+          var cleanUser = (window.myName || '').toLowerCase().trim();
+          
+          var currentChats = state.chats || [];
+          if (isInitialLoad) {
+             if (currentChats.length > 0) lastChatTime = currentChats[currentChats.length - 1].time;
+             isInitialLoad = false;
+          } else {
+             currentChats.forEach(c => {
+               if (c.time > lastChatTime) {
+                 window.activeFloatingChats.push({ sender: c.sender, text: c.text, time: c.time, localTime: Date.now() });
+                 if (c.sender.toLowerCase().trim() !== cleanUser) {
+                   document.getElementById('chatDot').style.display = 'inline';
+                   window.playVoiceMessage(c.text);
+                 }
+                 lastChatTime = Math.max(lastChatTime, c.time);
+               }
+             });
+          }
+
+          window.renderUI(state);
+        } else {
+           consoleMsg.innerText = "പുതിയ റൂം ഉണ്ടാക്കുന്നു...";
+           window.dbRef.set(getInitialState()).catch(err => {
+               consoleMsg.innerText = "Error: " + err.message;
+           });
+        }
+      }, (error) => {
+        consoleMsg.innerText = "Database Error: " + error.message;
+      });
+    }
+
+    window.openChatModal = function() {
+      document.getElementById('chatDot').style.display = 'none';
+      document.getElementById('chatModal').style.display = 'flex';
+    }
+
+    window.closeChatModal = function() {
+      document.getElementById('chatModal').style.display = 'none';
+    }
+
+    window.sendQuickMsg = function(msg) {
+      window.playVoiceMessage(msg); 
+      dispatchAction('sendChatMessage', msg);
+      closeChatModal();
+    }
+
+    window.openAdminPanel = function() {
+      window.SoundFX.init();
+      document.getElementById('adminPwdInput').value = '';
+      document.getElementById('adminPwdInput').placeholder = 'Password...';
+      document.getElementById('adminAuthModal').style.display = 'flex';
+    }
+
+    window.verifyAdmin = function() {
+      var pwd = document.getElementById('adminPwdInput').value;
+      if (pwd === ADMIN_PASSWORD) {
+        document.getElementById('adminAuthModal').style.display = 'none';
+        window.renderAdminPanel();
+        document.getElementById('adminPanelModal').style.display = 'flex';
+      } else {
+        var inp = document.getElementById('adminPwdInput');
+        inp.value = '';
+        inp.placeholder = '❌ തെറ്റായ പാസ്‌വേഡ്!';
+      }
+    }
+
+    window.renderAdminPanel = function() {
+      if (!window.lastState) return;
+      var container = document.getElementById('adminPlayersList');
+      var html = '';
+      window.lastState.players.forEach((p, idx) => {
+        if (p.isOccupied) {
+          html += '<div class="admin-player-item">' +
+                     '<div class="admin-player-header">' +
+                       '<span>' + p.name + ' (സീറ്റ് ' + (idx + 1) + ')</span>' +
+                       '<button class="btn-kick" onclick="dispatchAction(\'adminKickPlayer\', \'' + ADMIN_PASSWORD + '\', ' + idx + ')">പുറത്താക്കുക</button>' +
+                     '</div>' +
+                     '<div class="admin-controls">' +
+                       '<input type="number" id="adminInput_' + idx + '" class="admin-input" value="' + p.chips + '">' +
+                       '<button class="btn-update" onclick="adminSetBalance(' + idx + ')">തുക മാറ്റുക</button>' +
+                     '</div>' +
+                   '</div>';
+        } else {
+          html += '<div class="admin-player-item" style="opacity:0.4;">' +
+                     '<div class="admin-player-header">സീറ്റ് ' + (idx + 1) + ' (ഒഴിഞ്ഞുകിടക്കുന്നു)</div>' +
+                   '</div>';
+        }
+      });
+      container.innerHTML = html;
+    };
+
+    window.adminSetBalance = function(idx) {
+      var val = document.getElementById('adminInput_' + idx).value;
+      if (val !== '') {
+        dispatchAction('adminUpdateBalance', ADMIN_PASSWORD, idx, parseInt(val));
+      }
+    };
+
+    window.showHistoryModal = function() {
+      var container = document.getElementById('historyContainer');
+      var hist = (window.lastState && window.lastState.history) ? window.lastState.history : [];
+      
+      if (!hist || hist.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#64748b; padding:15px;">ഇതുവരെ കളികളുടെ വിവരങ്ങൾ ലഭ്യമല്ല!</div>';
+      } else {
+        var html = '';
+        hist.slice().reverse().forEach(h => {
+          var dateStr = new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          html += '<div class="history-item">' +
+                     '<span class="history-time">⏰ ' + dateStr + '</span>' +
+                     '<div class="history-winner">🏆 ' + h.winner + ' (+₹' + h.pot + ')</div>' +
+                     '<div style="color:#cbd5e1; font-size:10px; margin-top:2px;">' + h.details + '</div>' +
+                   '</div>';
+        });
+        container.innerHTML = html;
+      }
+      document.getElementById('historyModal').style.display = 'flex';
+    }
+    
+    function toggleFullScreen() {
+      var elem = document.documentElement;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (elem.requestFullscreen) elem.requestFullscreen().catch(e=>{}); else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    }
+    window.addEventListener("orientationchange", function() { if (window.orientation === 90 || window.orientation === -90) toggleFullScreen(); });
+    function toggleSound() { soundEnabled = !soundEnabled; document.getElementById('soundToggle').innerText = soundEnabled ? '🔊' : '🔇'; window.SoundFX.init(); }
+    
+    document.addEventListener('DOMContentLoaded', initUser);
+    
+    window.addEventListener('click', () => { 
+        if(window.SoundFX) window.SoundFX.init(); 
+        if ('speechSynthesis' in window) {
+            var u = new SpeechSynthesisUtterance(''); 
+            u.volume = 0; 
+            window.speechSynthesis.speak(u);
+        }
+    }, { once: true });
+
+    function getInitialState() {
+      var players = [];
+      for (var i = 0; i < MAX_PLAYERS; i++) players.push({ id: i, name: 'സീറ്റ് ' + (i + 1), isOccupied: false, chips: 500, cards: [], isBlind: true, hasSeen: false, folded: true, firstRoundDone: false, joinedAt: 0 });
+      return { pot: 0, currentStake: 10, activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
+    }
+
+    var isActionRunning = false;
+    window.dispatchAction = async function(actionName, ...args) {
+       if(isActionRunning) return false;
+       isActionRunning = true;
+       window.SoundFX.init();
+       if (actionName === 'foldCurrentPlayer') window.SoundFX.playFold();
+       
+       try {
+           await window.dbRef.transaction((state) => {
+               if (!state) return state;
+               
+               if (state.players && !Array.isArray(state.players)) state.players = Object.values(state.players);
+               if (state.history && !Array.isArray(state.history)) state.history = Object.values(state.history);
+               if (state.chats && !Array.isArray(state.chats)) state.chats = Object.values(state.chats);
+
+               if (!state.players) return state;
+
+               var occupiedNames = new Set();
+               state.players.forEach((p, idx) => {
+                 if (p.isOccupied && p.name) {
+                   var clean = p.name.toLowerCase().trim();
+                   if (occupiedNames.has(clean)) { p.isOccupied = false; p.name = 'സീറ്റ് ' + (idx + 1); p.cards = []; p.folded = true; p.hasSeen = false; p.joinedAt = 0; } 
+                   else { occupiedNames.add(clean); }
+                 }
+               });
+
+               try { 
+                   state = GameEngine[actionName](state, window.myName, ...args); 
+               } catch(e) { 
+                   console.error("GameEngine Error:", e);
+               }
+
+               if(!state.balances) state.balances = {};
+               state.players.forEach(p => { if (p.isOccupied && p.name) state.balances[p.name.trim().toLowerCase()] = p.chips; });
+               GameEngine.enforceBlindChainRules(state);
+               return state;
+           });
+       } catch (error) {
+           console.error("Transaction Error: ", error);
+       } finally {
+           isActionRunning = false;
+       }
+       return true;
+    }
+
+    const GameEngine = {
+      enforceBlindChainRules: function(state) {
+        if (state.gameOver) return;
+        var dealer = state.players[state.dealerPlayerIndex];
+        if (dealer && dealer.isOccupied) { dealer.hasSeen = true; dealer.isBlind = false; }
+        if (!state.isFirstCycle) return;
+        var total = state.players.length; var dealerIdx = state.dealerPlayerIndex; var startIdx = (dealerIdx - 1 + total) % total;
+        var sequence = [];
+        for (var i = 0; i < total; i++) { var idx = (startIdx - i + total) % total; var p = state.players[idx]; if (p.isOccupied) sequence.push(p); }
+        var chainBroken = false;
+        for (var i = 0; i < sequence.length; i++) {
+          var p = sequence[i];
+          if (p.id === dealerIdx) { p.hasSeen = true; p.isBlind = false; continue; }
+          if (chainBroken) { p.hasSeen = true; p.isBlind = false; } else { if (p.hasSeen || !p.isBlind) chainBroken = true; }
+        }
+        state.blindChainBroken = chainBroken;
+      },
+      getNextActiveIndex: function(state, startIndex) {
+        var idx = startIndex;
+        for (var i = 0; i < state.players.length; i++) { idx = (idx - 1 + state.players.length) % state.players.length; var p = state.players[idx]; if (p.isOccupied && !p.folded) return idx; }
+        return startIndex;
+      },
+      takeSeat: function(state, callerName, seatId) {
+        var cleanName = (callerName || '').trim();
+        if (!cleanName) { state.message = 'പേര് നൽകുക!'; return state; }
+        var existing = state.players.find(p => p.isOccupied && p.name.toLowerCase() === cleanName.toLowerCase());
+        if (existing) { state.message = 'നിങ്ങൾ ഇതിനകം സീറ്റിലുണ്ട്!'; return state; }
+        var seat = state.players[seatId];
+        if (seat && !seat.isOccupied) {
+          seat.isOccupied = true; seat.name = cleanName; seat.joinedAt = Date.now();
+          var lookupName = cleanName.toLowerCase();
+          seat.chips = (state.balances && state.balances[lookupName] !== undefined) ? state.balances[lookupName] : 500;
+          if (!state.gameOver) { seat.folded = true; seat.cards = []; state.message = cleanName + ' സീറ്റിൽ ഇരുന്നു. അടുത്ത റൗണ്ടിൽ കാർഡുകൾ ലഭിക്കും.'; } 
+          else { seat.folded = false; state.message = cleanName + ' സീറ്റിൽ ഇരുന്നു.'; }
+        }
+        return state;
+      },
+      leaveSeat: function(state, callerName, seatId) {
+        var cleanName = (callerName || '').trim().toLowerCase(); var seat = state.players[seatId];
+        if (seat && seat.isOccupied && seat.name.toLowerCase() === cleanName) {
+          if (!state.gameOver && !seat.folded) { state.message = 'കളി പുരോഗമിക്കുമ്പോൾ ഫോൾഡ് ചെയ്യാതെ സീറ്റ് ഒഴിയാൻ സാധ്യമല്ല!'; return state; }
+          seat.isOccupied = false; seat.name = 'സീറ്റ് ' + (seatId + 1); seat.cards = []; seat.folded = true; seat.hasSeen = false; seat.joinedAt = 0;
+          state.message = callerName + ' സീറ്റ് ഒഴിഞ്ഞു.';
+        }
+        return state;
+      },
+      drawDealer: function(state, callerName) {
+        var seatedPlayers = state.players.filter(p => p.isOccupied);
+        if (seatedPlayers.length < 2) { state.message = 'കുറഞ്ഞത് 2 കളിക്കാരെങ്കിലും വേണം!'; return state; }
+        var N = seatedPlayers.length; var k = Math.floor(21 / N);
+        var fullDeck = createDeck(); var jokerCard = fullDeck.find(c => c.isJoker); var nonJokers = fullDeck.filter(c => !c.isJoker);
+        var selectionDeck = [jokerCard];
+        for (var i = 0; i < (N * k - 1); i++) selectionDeck.push(nonJokers[i]);
+        for (var i = selectionDeck.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); [selectionDeck[i], selectionDeck[j]] = [selectionDeck[j], selectionDeck[i]]; }
+        var dealerWinner = seatedPlayers[0];
+        seatedPlayers.forEach((p, idx) => { var hand = selectionDeck.slice(idx * k, (idx + 1) * k); if (hand.some(c => c.isJoker)) dealerWinner = p; });
+        state.dealerSelected = true; state.lastWinnerName = dealerWinner.name; state.dealerPlayerIndex = dealerWinner.id;
+        state.message = '🎯 നറുക്കെടുപ്പ് കഴിഞ്ഞു! 9♠ ജോക്കർ ലഭിച്ചത് ' + dealerWinner.name + '-നാണ്!';
+        return state;
+      },
+      dealNewHand: function(state, callerName) {
+        var seatedPlayers = state.players.filter(p => p.isOccupied);
+        if (seatedPlayers.length < 2) { state.message = 'കുറഞ്ഞത് 2 കളിക്കാരെങ്കിലും വേണം!'; return state; }
+        if (state.lastWinnerName && callerName.toLowerCase().trim() !== state.lastWinnerName.toLowerCase().trim() && state.players.some(p=>p.name.toLowerCase()===state.lastWinnerName.toLowerCase())) {
+          state.message = 'അനുമതിയില്ല: ഡീലറായ ' + state.lastWinnerName + '-ന് മാത്രമേ ഡീൽ ചെയ്യാൻ സാധിക്കൂ!'; return state;
+        }
+        var ante = 10; state.pot = 0; state.currentStake = ante; state.gameOver = false; state.roundId = (state.roundId || 0) + 1; state.isFirstCycle = true; state.turnStartTime = Date.now();
+        var deck = createDeck();
+        state.players.forEach(p => {
+          if (p.isOccupied) { p.chips -= ante; state.pot += ante; p.cards = [deck.pop(), deck.pop(), deck.pop()]; p.hasSeen = false; p.isBlind = true; p.folded = false; p.firstRoundDone = false; }
+          else { p.cards = []; p.folded = true; }
+        });
+        var dealerIdx = state.lastWinnerName ? state.players.findIndex(p => p.name.toLowerCase() === state.lastWinnerName.toLowerCase()) : state.players.findIndex(p=>p.isOccupied);
+        if(dealerIdx === -1) dealerIdx = state.players.findIndex(p=>p.isOccupied);
+        state.dealerPlayerIndex = dealerIdx;
+        state.players[dealerIdx].hasSeen = true; state.players[dealerIdx].isBlind = false;
+        state.activePlayerIndex = this.getNextActiveIndex(state, dealerIdx);
+        state.message = seatedPlayers.length + ' പേർക്കായി കാർഡുകൾ നൽകി!';
+        return state;
+      },
+      lookAtCards: function(state, callerName, playerId) {
+        var player = state.players[playerId];
+        if (player && player.isOccupied && player.name.toLowerCase() === callerName.toLowerCase().trim()) {
+          player.hasSeen = true; player.isBlind = false; state.message = player.name + ' കാർഡുകൾ കണ്ടു (SEEN ആയി).';
+        }
+        return state;
+      },
+      placeBet: function(state, callerName, raiseMultiplier) {
+        if (state.gameOver) return state;
+        var active = state.players[state.activePlayerIndex];
+        if (callerName.trim().toLowerCase() !== active.name.trim().toLowerCase()) return state;
+        
+        // --- BET AMOUNT LOGIC FIX ---
+        var prevPlayer = null;
+        for (var i = 1; i < state.players.length; i++) {
+            var checkIdx = (state.activePlayerIndex + i) % state.players.length;
+            var p = state.players[checkIdx];
+            if (p.isOccupied && !p.folded) { prevPlayer = p; break; }
+        }
+
+        if (raiseMultiplier > 1) state.currentStake *= raiseMultiplier;
+        
+        var cost = state.currentStake;
+        if (!active.isBlind) {
+            if (prevPlayer && !prevPlayer.isBlind) {
+                cost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ബെറ്റ് അടിസ്ഥാന തുകയാക്കുന്നു
+            } else {
+                cost = state.currentStake * 2;
+            }
+        }
+
+        active.chips -= cost; state.pot += cost; active.firstRoundDone = true;
+        state.message = active.name + ' ' + cost + ' രൂപ ബെറ്റ് വെച്ചു.';
+        state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
+        state.turnStartTime = Date.now();
+        var remainingActive = state.players.filter(p => p.isOccupied && !p.folded);
+        if (state.isFirstCycle && remainingActive.every(p => p.firstRoundDone)) state.isFirstCycle = false;
+        return state;
+      },
+      foldCurrentPlayer: function(state, callerName) {
+        if (state.gameOver) return state;
+        var active = state.players[state.activePlayerIndex];
+        if (callerName.trim().toLowerCase() !== active.name.trim().toLowerCase()) return state;
+        active.folded = true; active.firstRoundDone = true;
+        var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
+        if (activeRemaining.length === 1) {
+          var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+          state.message = 'മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു! ' + winner.name + ' ' + state.pot + ' രൂപ നേടി.';
+          if (!state.history || !Array.isArray(state.history)) state.history = [];
+          state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു' });
+          if (state.history.length > 30) state.history.shift();
+        } else {
+          state.message = active.name + ' ഫോൾഡ് ചെയ്തു.';
+          state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
+          state.turnStartTime = Date.now();
+          if (state.isFirstCycle && activeRemaining.every(p => p.firstRoundDone)) state.isFirstCycle = false;
+        }
+        return state;
+      },
+      callShowdown: function(state, callerName) {
+        if (state.gameOver) return state;
+        var active = state.players[state.activePlayerIndex];
+        if (callerName.trim().toLowerCase() !== active.name.trim().toLowerCase()) return state;
+        var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
+        if (activeRemaining.length > 2) { state.message = '2 പേർ മാത്രം ബാക്കിയുള്ളപ്പോൾ മാത്രമേ ഷോഡൗൺ സാധ്യമാകൂ.'; return state; }
+        
+        // --- BET AMOUNT LOGIC FIX ---
+        var prevPlayer = null;
+        for (var i = 1; i < state.players.length; i++) {
+            var checkIdx = (state.activePlayerIndex + i) % state.players.length;
+            var p = state.players[checkIdx];
+            if (p.isOccupied && !p.folded) { prevPlayer = p; break; }
+        }
+
+        var callCost = state.currentStake;
+        if (!active.isBlind) {
+            if (prevPlayer && !prevPlayer.isBlind) {
+                callCost = state.currentStake; // തൊട്ടുമുൻപിൽ ബ്ലൈൻഡ് ഇല്ലെങ്കിൽ ഷോഡൗൺ തുകയും കുറയുന്നു
+            } else {
+                callCost = state.currentStake * 2;
+            }
+        }
+        
+        active.chips -= callCost; state.pot += callCost;
+        
+        var p1 = activeRemaining[0]; var p2 = activeRemaining[1];
+        var p1Eval = evaluateBragHand(p1.cards || []); var p2Eval = evaluateBragHand(p2.cards || []);
+        
+        var winner;
+        if (p1Eval.score > p2Eval.score) {
+            winner = p1;
+        } else if (p2Eval.score > p1Eval.score) {
+            winner = p2;
+        } else {
+            winner = (active.id === p1.id) ? p2 : p1;
+        }
+
+        winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+        state.message = 'ഷോഡൗൺ! ' + p1.name + ': ' + p1Eval.desc + ' | ' + p2.name + ': ' + p2Eval.desc + '. വിജയി: ' + winner.name + '!';
+        
+        if (!state.history || !Array.isArray(state.history)) state.history = [];
+        state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: p1.name + ' (' + p1Eval.desc + ') vs ' + p2.name + ' (' + p2Eval.desc + ')' });
+        if (state.history.length > 30) state.history.shift();
+        
+        state.players.forEach(p => { if (p.isOccupied) p.hasSeen = true; });
+        return state;
+      },
+      autoFoldTimeout: function(state, callerName) {
+         if (state.gameOver) return state;
+         var elapsedSec = (Date.now() - state.turnStartTime) / 1000;
+         if (elapsedSec < TURN_TIMEOUT_SEC) return state;
+         var timedOutPlayer = state.players[state.activePlayerIndex];
+         timedOutPlayer.folded = true; timedOutPlayer.firstRoundDone = true;
+         var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
+         if (activeRemaining.length === 1) {
+            var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി.';
+            if (!state.history || !Array.isArray(state.history)) state.history = [];
+            state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞു (Auto-fold)' });
+            if (state.history.length > 30) state.history.shift();
+         } else {
+            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി!';
+            state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
+            state.turnStartTime = Date.now();
+         }
+         return state;
+      },
+      adminResetTable: function(state, callerName, pwd) {
+          if (pwd && pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
+          var newState = getInitialState();
+          newState.balances = state.balances;
+          newState.history = state.history || [];
+          newState.chats = state.chats || [];
+          newState.message = pwd ? '⚡ അഡ്മിൻ പാസ്‌വേഡ് നൽകി ടേബിൾ റീസെറ്റ് ചെയ്തു!' : '⏰ സമയം കഴിഞ്ഞതിനാൽ ടേബിൾ തനിയെ റീസെറ്റ് ആയി.';
+          return newState;
+      },
+      adminKickPlayer: function(state, callerName, pwd, seatId) {
+          if (pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
+          var seat = state.players[seatId];
+          if (seat && seat.isOccupied) {
+              var pName = seat.name;
+              seat.isOccupied = false; seat.name = 'സീറ്റ് ' + (seatId + 1); seat.cards = []; seat.folded = true; seat.hasSeen = false; seat.joinedAt = 0;
+              state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ മേശയിൽ നിന്നും പുറത്താക്കി!';
+              if (state.activePlayerIndex === seatId && !state.gameOver) { state.activePlayerIndex = this.getNextActiveIndex(state, seatId); state.turnStartTime = Date.now(); }
+              if (!state.gameOver) {
+                 var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
+                 if (activeRemaining.length === 1) {
+                    var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+                    state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ പുറത്താക്കി. ബാക്കിയുള്ള ' + winner.name + ' ' + state.pot + ' രൂപ നേടി.';
+                 } else if (activeRemaining.length === 0) { state.gameOver = true; state.message = 'എല്ലാവരും പുറത്തായി! കളി അവസാനിച്ചു.'; }
+              }
+          }
+          return state;
+      },
+      adminUpdateBalance: function(state, callerName, pwd, seatId, newBalance) {
+          if (pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
+          var seat = state.players[seatId];
+          if (seat && seat.isOccupied) {
+              seat.chips = newBalance;
+              if (state.balances) state.balances[seat.name.toLowerCase().trim()] = newBalance;
+              state.message = '⚡ അഡ്മിൻ ' + seat.name + '-ന്റെ തുക ₹' + newBalance + ' ആയി മാറ്റി.';
+          }
+          return state;
+      },
+      sendChatMessage: function(state, callerName, text) {
+          if (!state.chats || !Array.isArray(state.chats)) state.chats = [];
+          var cleanMsg = (text || '').trim();
+          if (cleanMsg) {
+              state.chats.push({ sender: callerName || 'Player', text: cleanMsg, time: Date.now() });
+              if (state.chats.length > 25) state.chats.shift();
+          }
+          return state;
+      }
+    };
+
+    function createDeck() {
+      var suits = ['♠', '♥', '♦', '♣']; var values = [{ rank: 10, label: '10' }, { rank: 11, label: 'J' }, { rank: 12, label: 'Q' }, { rank: 13, label: 'K' }, { rank: 14, label: 'A' }];
+      var deck = []; suits.forEach(suit => { values.forEach(v => { deck.push({ suit: suit, rank: v.rank, label: v.label, isJoker: false }); }); });
+      deck.push({ suit: '♠', rank: 9, label: '9', isJoker: true });
+      for (var i = deck.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+      return deck;
+    }
+
+    function evaluateStandardHand(cards, hasJoker = false) {
+      if (!cards || cards.length < 3) return { score: 0, desc: 'കാർഡുകളില്ല' };
+      var ranks = cards.map(c => c.rank).sort((a, b) => a - b); 
+      var suits = cards.map(c => c.suit); 
+      var uniqueSuits = new Set(suits); 
+      var isFlush = (uniqueSuits.size === 1); 
+      var isPair = (ranks[0] === ranks[1] || ranks[1] === ranks[2]);
+
+      // 1. ട്രയൽ (Trail)
+      if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
+         return { score: 70000 + ranks[0], desc: (cards[0].label === 'A' ? 'ഏസ് ട്രയൽ (Three Aces)' : cards[0].label + '-ന്റെ ട്രയൽ') };
+      }
+      
+      // 2. സ്പെഷ്യൽ സ്പേഡ് AKQ (TIN)
+      var isAKQ = (ranks[0] === 12 && ranks[1] === 13 && ranks[2] === 14);
+      // 🔴 FIX: ഇത് വർക്ക് ചെയ്യണമെങ്കിൽ 3 കാർഡും സ്പേഡ് (♠) തന്നെ ആയിരിക്കണം!
+      if (isAKQ && uniqueSuits.size === 1 && suits[0] === '♠') {
+         return { score: 50000, desc: 'സ്പെഷ്യൽ സ്പേഡ് AKQ (TIN)' };
+      }
+
+      // 3. കളർ പെയർ (Color Pair)
+      if (isFlush && isPair) {
+          var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1];
+          var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0];
+          var pairCard = cards.find(c => c.rank === pairRank);
+          return { score: 48000 + (pairRank * 30) + kicker, desc: 'കളർ പെയർ (' + pairCard.label + ')' };
+      }
+
+      // 4. നാച്ചുറൽ കളർ / ഫ്ലഷ്
+      if (isFlush && !hasJoker) { 
+         var highCard = cards.find(c => c.rank === ranks[2]); 
+         return { score: 40000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'കളർ / ഫ്ലഷ് (' + highCard.label + '-ഹൈ)' }; 
+      }
+
+      // 5. പെയർ
+      if (isPair) { 
+         var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1]; 
+         var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0]; 
+         var pairCard = cards.find(c => c.rank === pairRank); 
+         return { score: 20000 + (pairRank * 30) + kicker, desc: pairCard.label + '-ന്റെ പെയർ' }; 
+      }
+
+      // 6. ഹൈ കാർഡ്
+      var highCard = cards.find(c => c.rank === ranks[2]); 
+      return { score: 10000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'ഹൈ കാർഡ് (' + highCard.label + ')' };
+    }
+
+    function evaluateBragHand(cards) {
+      if (!cards || cards.length < 3) return { score: 0, desc: 'കാർഡുകളില്ല' };
+      var jokerIndex = cards.findIndex(c => c.isJoker);
+      if (jokerIndex === -1) return evaluateStandardHand(cards, false);
+      var nonJokerCards = cards.filter((_, idx) => idx !== jokerIndex);
+      if (nonJokerCards.length < 2) return { score: 0, desc: 'കാർഡുകളില്ല' };
+      
+      // ജോക്കറിന്റെ ചിഹ്നം എപ്പോഴും സ്പേഡ് (♠)
+      var candidateSuits = ['♠']; 
+      
+      // 🔴 FIX: ജോക്കർ കയ്യിലുള്ള ബാക്കി 2 കാർഡുകളിൽ ഏതെങ്കിലും ഒന്നായി മാത്രമേ മാറാൻ പാടുള്ളൂ!
+      var candidateRanks = [
+          { rank: nonJokerCards[0].rank, label: nonJokerCards[0].label }, 
+          { rank: nonJokerCards[1].rank, label: nonJokerCards[1].label }
+      ];
+      
+      var bestResult = { score: -1, desc: '' };
+      candidateSuits.forEach(suit => { 
+          candidateRanks.forEach(r => {
+              var trialJoker = { suit: suit, rank: r.rank, label: r.label, isJoker: false };
+              var trialHand = [nonJokerCards[0], nonJokerCards[1], trialJoker];
+              var res = evaluateStandardHand(trialHand, true); 
+              if (res && res.score > bestResult.score) bestResult = { score: res.score, desc: res.desc + ' (ജോക്കർ സഹിതം)' };
+          }); 
+      });
+      return bestResult;
+    }
+
+    window.updateFloatingChatsLive = function() {
+        var overlay = document.getElementById('tableChatOverlay');
+        if (!overlay) {
+           overlay = document.createElement('div');
+           overlay.id = 'tableChatOverlay';
+           overlay.className = 'table-chat-overlay';
+           var tableArea = document.querySelector('.table-area');
+           if(tableArea) tableArea.appendChild(overlay);
+        }
+
+        if (overlay) {
+            var now = Date.now();
+            window.activeFloatingChats = (window.activeFloatingChats || []).filter(c => (now - c.localTime) < 8000);
+
+            if (window.activeFloatingChats.length > 0) {
+              var displayChats = window.activeFloatingChats.slice(-2);
+              var newHtml = displayChats.map(c => '<div class="floating-chat-msg"><span class="chat-sender-overlay">' + c.sender + ':</span> ' + c.text + '</div>').join('');
+              if (overlay.getAttribute('data-last') !== newHtml) {
+                overlay.innerHTML = newHtml;
+                overlay.setAttribute('data-last', newHtml);
+              }
+            } else {
+              if (overlay.innerHTML !== '') {
+                overlay.innerHTML = '';
+                overlay.setAttribute('data-last', '');
+              }
+            }
+        }
+    };
+
+    window.updateTimersLive = function(state) {
+        if(!state) return;
+        var cleanUser = (window.myName || '').toLowerCase().trim();
+        var activePlayer = state.players[state.activePlayerIndex];
+        var isMyTurn = (!state.gameOver && activePlayer && activePlayer.isOccupied && activePlayer.name.toLowerCase() === cleanUser);
+        
+        var remainingSec = 30;
+        if (!state.gameOver && state.turnStartTime) {
+            remainingSec = Math.max(0, Math.ceil(30 - ((Date.now() - state.turnStartTime) / 1000)));
+        }
+
+        if (!state.gameOver && isMyTurn && remainingSec <= 5 && remainingSec > 0 && remainingSec !== prevRemainingSec && !document.hidden) {
+            window.SoundFX.playTick();
+        }
+        prevRemainingSec = remainingSec;
+
+        for (var i = 0; i < 7; i++) {
+            var timerDiv = document.getElementById('timer_seat_' + i);
+            if (timerDiv) {
+                if (i === state.activePlayerIndex && !state.gameOver && state.players[i].isOccupied) {
+                    timerDiv.style.display = 'block';
+                    timerDiv.innerText = '⏳ ' + remainingSec + 's';
+                    if (remainingSec <= 5) {
+                        timerDiv.classList.add('timer-urgent');
+                    } else {
+                        timerDiv.classList.remove('timer-urgent');
+                    }
+                } else {
+                    timerDiv.style.display = 'none';
+                }
+            }
+        }
+    };
+
+    var isCheckingTimeout = false;
+    var lastActionTime = Date.now();
+
+    setInterval(async () => {
+      if (window.lastState) {
+        var state = window.lastState;
+        
+        if (state.turnStartTime) {
+            var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
+            if (totalElapsedSinceTurnStart >= 180) { 
+                 if (!isCheckingTimeout) {
+                     isCheckingTimeout = true;
+                     try {
+                         await window.dispatchAction('adminResetTable', null, null); 
+                     } catch (e) {
+                         console.error(e);
+                     }
+                     isCheckingTimeout = false;
+                 }
+                 return; 
+            }
+        }
+
+        var elapsedSec = (Date.now() - (state.turnStartTime || Date.now())) / 1000;
+        
+        if (!state.gameOver && elapsedSec >= TURN_TIMEOUT_SEC && state.players[state.activePlayerIndex] && state.players[state.activePlayerIndex].isOccupied) {
+           if (!isCheckingTimeout) {
+               isCheckingTimeout = true;
+               try {
+                   await window.dispatchAction('autoFoldTimeout');
+               } catch (e) {
+                   console.error(e);
+               }
+               isCheckingTimeout = false;
+           }
+        }
+        window.updateTimersLive(state);
+      }
+      window.updateFloatingChatsLive();
+    }, 1000);
+  </script>
+</body>
+</html>
