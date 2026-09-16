@@ -1163,7 +1163,7 @@
             var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
             state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി. 🏆';
             if (!state.history || !Array.isArray(state.history)) state.history = [];
-            state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞു (Auto-fold)' });
+            state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞ্যু (Auto-fold)' });
             if (state.history.length > 30) state.history.shift();
          } else {
             state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ⏳';
@@ -1249,10 +1249,12 @@
       var isPair = (ranks[0] === ranks[1] || ranks[1] === ranks[2]);
       var isSequence = (ranks[0] + 1 === ranks[1] && ranks[1] + 1 === ranks[2]);
 
+      // 1. ട്രയൽ (Trail)
       if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
          return { score: 90000 + ranks[0], desc: (cards[0].label === 'A' ? 'ഏസ് ട്രയൽ (Three Aces)' : cards[0].label + '-ന്റെ ട്രയൽ') };
       }
       
+      // 2. സ്പെഷ്യൽ ടിൻ (TIN: A, K, Q different suits, exact one Spade, NO JOKER)
       var isAKQ = (ranks[0] === 12 && ranks[1] === 13 && ranks[2] === 14);
       if (isAKQ && uniqueSuits.size === 3 && suits.includes('♠') && !hasJoker) {
          var cardA = cards.find(c => c.rank === 14);
@@ -1268,28 +1270,25 @@
          }
       }
 
+      // 3. 9♠ ജോക്കർ ഉപയോഗിച്ചുള്ള സ്പേഡ് കളർ (Spade Color with 9♠)
+      if (hasJoker && uniqueSuits.size === 1 && suits[0] === '♠') {
+         var highCard = cards.find(c => c.rank === ranks[2] && !c.isJoker) || cards[2];
+         return { score: 75000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'സ്പേഡ് കളർ വിത്ത് ജോക്കർ (Spade Color with 9♠)' };
+      }
+
+      // 4. കളർ റൺ (Pure Sequence / Straight Flush)
       if (isSequence && isFlush) {
          var highCard = cards.find(c => c.rank === ranks[2]);
          return { score: 70000 + ranks[2], desc: 'കളർ റൺ (Pure Sequence ' + highCard.label + '-ഹൈ)' };
       }
 
-      if (isSequence && !isFlush) {
-         var highCard = cards.find(c => c.rank === ranks[2]);
-         return { score: 60000 + ranks[2], desc: 'റൺ (Sequence ' + highCard.label + '-ഹൈ)' };
-      }
-
-      if (isFlush && isPair) {
-          var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1];
-          var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0];
-          var pairCard = cards.find(c => c.rank === pairRank);
-          return { score: 48000 + (pairRank * 30) + kicker, desc: 'കളർ പെയർ (' + pairCard.label + ')' };
-      }
-
+      // 5. കളർ / ഫ്ലഷ് (Color / Flush)
       if (isFlush && !hasJoker) { 
          var highCard = cards.find(c => c.rank === ranks[2]); 
          return { score: 40000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'കളർ / ഫ്ലഷ് (' + highCard.label + '-ഹൈ)' }; 
       }
 
+      // 6. പെയർ (Pair)
       if (isPair) { 
          var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1]; 
          var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0]; 
@@ -1297,6 +1296,7 @@
          return { score: 20000 + (pairRank * 30) + kicker, desc: pairCard.label + '-ന്റെ പെയർ' }; 
       }
 
+      // 7. ഹൈ കാർഡ് (High Card) - വ്യത്യസ്ത ചിഹ്നങ്ങളിലുള്ള റൺ (Sequence) ഇതിൽ ഉൾപ്പെടുന്നു
       var highCard = cards.find(c => c.rank === ranks[2]); 
       return { score: 10000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'ഹൈ കാർഡ് (' + highCard.label + ')' };
     }
@@ -1310,7 +1310,6 @@
       if (nonJokerCards.length < 2) return { score: 0, desc: 'കാർഡുകളില്ല' };
       
       var candidateSuits = ['♠', '♥', '♦', '♣']; 
-      
       var allPossibleRanks = [
           { rank: 10, label: '10' }, { rank: 11, label: 'J' }, 
           { rank: 12, label: 'Q' }, { rank: 13, label: 'K' }, { rank: 14, label: 'A' }
@@ -1430,7 +1429,7 @@
         
         if (state.turnStartTime) {
             var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
-            if (totalElapsedSinceTurnStart >= 420) { // 7 Minutes Reset Time
+            if (totalElapsedSinceTurnStart >= 420) { 
                  if (!isCheckingTimeout) {
                      isCheckingTimeout = true;
                      try {
