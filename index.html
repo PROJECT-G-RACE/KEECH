@@ -135,11 +135,12 @@
     .seat.pos-0 .seat-status { font-size: 14px; padding: 5px 12px; bottom: -16px; }
     
     .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
+    
+    /* കാർഡുകൾക്ക് താഴെ വരാൻ അഡ്ജസ്റ്റ് ചെയ്തത് */
     .seat.pos-0 .btn-seat-action-overlay { 
-      font-size: 15px; 
-      padding: 10px 0; 
-      position: absolute; 
-      top: -50px; 
+      font-size: 14px; 
+      padding: 8px 0; 
+      margin-top: 20px; 
       width: 100%; 
       z-index: 50; 
       box-shadow: 0 4px 15px rgba(0,0,0,0.8);
@@ -297,13 +298,13 @@
       <span><strong id="userBadge" style="color:var(--accent);">അജ്ഞാതൻ</strong></span>
     </div>
     
-    <!-- Table Running Time added here -->
     <div id="tableRunningTime" style="color:#fcd34d; font-weight:bold; font-size:11px; background:rgba(0,0,0,0.6); padding:3px 8px; border-radius:12px; border:1px solid #f59e0b; letter-spacing: 1px;">⏱️ 00:00</div>
     
     <div style="display:flex; gap:4px; align-items:center;">
       <button class="btn-small btn-chat" onclick="openChatModal()">💬 ചാറ്റ് <span id="chatDot" style="display:none; color:#ef4444;">●</span></button>
       <button class="btn-small btn-history" onclick="showHistoryModal()">📜 ഹിസ്റ്ററി</button>
-      <button id="fsToggle" class="sound-toggle-btn" onclick="toggleFullScreen()" title="ഫുൾ സ്ക്രീൻ">🔲</button>
+      <!-- ഫുൾ സ്ക്രീൻ ടെക്സ്റ്റ് ബട്ടൺ -->
+      <button id="fsToggle" class="btn-small" style="background:#475569; padding: 4px 8px; font-weight: bold;" onclick="toggleFullScreen()">ഫുൾ സ്ക്രീൻ</button>
       <button id="soundToggle" class="sound-toggle-btn" onclick="toggleSound()" title="ശബ്ദം">🔊</button>
       <span class="live-dot"></span><span style="color:#94a3b8; font-size:10px;">Live</span>
       <button class="btn-small btn-admin" onclick="openAdminPanel()">⚡ അഡ്മിൻ</button>
@@ -544,7 +545,7 @@
           findDealerBtn.style.display = 'none';
           if (!state.gameOver) {
             dealBtn.style.display = 'none'; betBtn.style.display = 'block'; raiseBtn.style.display = 'block'; 
-            document.getElementById('showdownBtn').style.display = (activeRemainingCount === 2) ? 'block' : 'none'; // രണ്ടുപേർ ഉള്ളപ്പോൾ മാത്രം ഷോഡൗൺ കാണിക്കുന്നു
+            document.getElementById('showdownBtn').style.display = (activeRemainingCount === 2) ? 'block' : 'none'; 
             document.getElementById('foldBtn').style.display = 'block';
           } else {
             dealBtn.style.display = 'block'; betBtn.style.display = 'none'; raiseBtn.style.display = 'none'; document.getElementById('showdownBtn').style.display = 'none'; document.getElementById('foldBtn').style.display = 'none';
@@ -557,23 +558,23 @@
         var myIndex = state.players.findIndex(p => p.isOccupied && p.name.toLowerCase() === cleanUser);
         var offset = myIndex !== -1 ? (7 - myIndex) % 7 : 0;
 
-        var face = '👩‍💼'; // Default Professional Dealer
+        var face = '👩‍💼'; 
         var msg = state.message || '';
 
         if (state.gameOver) {
-            face = '🥳'; // Celebrating a win
+            face = '🥳'; 
         } else if (msg.includes('ഫോൾഡ്')) {
-            face = '🥱'; // Yawning or sighing
+            face = '🥱'; 
         } else if (msg.includes('അത്ഭുതപ്പെടുത്തിക്കൊണ്ട്')) {
-            face = '😲'; // Surprised/excited for Double raise
+            face = '😲'; 
         } else if (msg.includes('ബെറ്റ്')) {
-            face = state.pot > 500 ? '🤑' : '😏'; // Excited for big pot
+            face = state.pot > 500 ? '🤑' : '😏'; 
         } else if (msg.includes('ഷോഡൗൺ')) {
-            face = '😲'; // Shocked or tense
+            face = '😲'; 
         } else if (msg.includes('കാർഡുകൾ കണ്ടു')) {
-            face = '👀'; // Looking intently
+            face = '👀'; 
         } else if (msg.includes('കുത്തി')) {
-            face = '🤭'; // Giggling when someone is poked
+            face = '🤭'; 
         }
 
         var tableHtml = '<div class="table-center">';
@@ -591,7 +592,6 @@
           var canSeeCards = (isMe && !p.hasSeen && !p.folded && !state.gameOver && p.cards && p.cards.length > 0);
           var canPoke = (!isMe && p.isOccupied);
           
-          // സീറ്റിൽ മുഴുവനായി ക്ലിക്ക് ചെയ്യാനുള്ള ഓപ്ഷൻ
           var seatClick = '';
           if(canSeeCards) seatClick = ' onclick="dispatchAction(\'lookAtCards\', ' + p.id + ')" style="cursor:pointer;" title="കാർഡുകൾ കാണാൻ ഇവിടെ ക്ലിക്ക് ചെയ്യുക"';
           else if(canPoke) seatClick = ' onclick="dispatchAction(\'pokePlayer\', ' + p.id + ')" style="cursor:pointer;" title="കുത്താൻ ക്ലിക്ക് ചെയ്യുക"';
@@ -600,7 +600,6 @@
 
           tableHtml += '<div class="' + stateClasses + '"' + seatClick + '>';
           
-          // Poking float div
           tableHtml += '<div id="poke_seat_' + idx + '" style="display:none; position:absolute; top:-40px; left:50%; transform:translateX(-50%); background:rgba(239,68,68,0.95); color:white; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; white-space:nowrap; z-index:200; pointer-events:none; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.5);"></div>';
 
           tableHtml += '<div class="avatar-box">';
@@ -1381,7 +1380,6 @@
         }
         prevRemainingSec = remainingSec;
 
-        // Table Running Time update
         if (state.turnStartTime && !state.gameOver) {
             var totalElapsedSec = Math.floor((Date.now() - state.turnStartTime) / 1000);
             var m = Math.floor(totalElapsedSec / 60);
@@ -1436,7 +1434,7 @@
         
         if (state.turnStartTime) {
             var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
-            if (totalElapsedSinceTurnStart >= 420) { // 7 Minutes Reset Time
+            if (totalElapsedSinceTurnStart >= 420) { 
                  if (!isCheckingTimeout) {
                      isCheckingTimeout = true;
                      try {
