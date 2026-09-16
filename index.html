@@ -128,9 +128,9 @@
     .seat.pos-0 .name-txt { font-size: 18px; margin-top: 4px; }
     .seat.pos-0 .chips-txt { font-size: 16px; margin-top: 6px; }
     .seat.pos-0 .seat-status { font-size: 14px; padding: 5px 12px; bottom: -16px; }
-    .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
     
-    .seat.pos-0 .btn-seat-action { 
+    .btn-seat-action { background: #2563eb; color: #fff; font-size: 9px; padding: 3px 0; width: 100%; border: none; border-radius: 3px; margin-top: 14px; cursor: pointer; font-weight: bold; position: relative; z-index: 30; }
+    .seat.pos-0 .btn-seat-action-overlay { 
       font-size: 15px; 
       padding: 10px 0; 
       position: absolute; 
@@ -140,6 +140,11 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.8);
       border: 1px solid #38bdf8;
       border-radius: 6px;
+      background: #475569; 
+      color: white; 
+      text-align: center;
+      font-weight: bold;
+      pointer-events: none; 
     }
 
     .card-back { width: 28px; height: 40px; background: #1e3a8a; border-radius: 3px; border: 1px solid #fff; margin-left: -12px; transform: rotate(0deg) !important; background-image: repeating-linear-gradient(45deg, #1d4ed8 0, #1d4ed8 2px, #1e3a8a 0, #1e3a8a 4px); }
@@ -258,8 +263,14 @@
   <div id="adminPanelModal" class="modal-backdrop" style="display: none; z-index: 250000;">
     <div class="modal-box" style="border-color: #7c3aed; max-width: 420px; padding: 15px;">
       <div class="modal-title" style="color: #7c3aed;">⚡ അഡ്മിൻ പാനൽ</div>
-      <div class="modal-desc" style="color: #cbd5e1; margin-bottom:10px;">കളിക്കാരെ പുറത്താക്കുകയോ തുക തിരുത്തുകയോ ചെയ്യാം.</div>
-      <div id="adminPlayersList" style="max-height: 350px; overflow-y: auto; text-align: left; margin-bottom:15px; padding-right: 5px;"></div>
+      <div class="modal-desc" style="color: #cbd5e1; margin-bottom:10px;">കളിക്കാരെ പുറത്താക്കുകയോ, തുക തിരുത്തുകയോ, അടിസ്ഥാന ബെറ്റ് മാറ്റുകയോ ചെയ്യാം.</div>
+      
+      <div style="display:flex; gap:6px; margin-bottom:15px;">
+        <input type="number" id="adminBaseBetInput" class="admin-input" placeholder="പുതിയ അടിസ്ഥാന ബെറ്റ് (ഉദാ: 20)" style="flex:1;">
+        <button class="btn-update" onclick="adminChangeBaseBet()" style="background:#f59e0b;">ബെറ്റ് മാറ്റുക</button>
+      </div>
+
+      <div id="adminPlayersList" style="max-height: 250px; overflow-y: auto; text-align: left; margin-bottom:15px; padding-right: 5px;"></div>
       <hr style="border: 1px solid #334155; margin: 10px 0;">
       <button onclick="dispatchAction('adminResetTable', '555')" style="width: 100%; background: #b91c1c; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; margin-bottom: 10px;">ടേബിൾ റീസെറ്റ് ചെയ്യുക (Reset All)</button>
       <button onclick="document.getElementById('adminPanelModal').style.display='none'" style="width: 100%; background: #475569; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer;">ക്ലോസ് ചെയ്യുക</button>
@@ -493,7 +504,6 @@
         
         prevTurnName = activePlayer ? activePlayer.name.toLowerCase().trim() : '';
 
-        // -- BET AMOUNT LOGIC FIX --
         var prevPlayer = null;
         for (var i = 1; i < state.players.length; i++) {
             var checkIdx = (state.activePlayerIndex + i) % state.players.length;
@@ -518,12 +528,16 @@
 
         var findDealerBtn = document.getElementById('findDealerBtn'), dealBtn = document.getElementById('dealBtn');
         var cleanWinner = (state.lastWinnerName || '').toLowerCase().trim();
+        var activeRemainingCount = state.players.filter(p => p.isOccupied && !p.folded).length;
+
         if (!state.dealerSelected && !state.lastWinnerName) {
           findDealerBtn.style.display = 'block'; dealBtn.style.display = 'none'; betBtn.style.display = 'none'; raiseBtn.style.display = 'none'; document.getElementById('showdownBtn').style.display = 'none'; document.getElementById('foldBtn').style.display = 'none';
         } else {
           findDealerBtn.style.display = 'none';
           if (!state.gameOver) {
-            dealBtn.style.display = 'none'; betBtn.style.display = 'block'; raiseBtn.style.display = 'block'; document.getElementById('showdownBtn').style.display = 'block'; document.getElementById('foldBtn').style.display = 'block';
+            dealBtn.style.display = 'none'; betBtn.style.display = 'block'; raiseBtn.style.display = 'block'; 
+            document.getElementById('showdownBtn').style.display = (activeRemainingCount === 2) ? 'block' : 'none'; // രണ്ടുപേർ ഉള്ളപ്പോൾ മാത്രം ഷോഡൗൺ കാണിക്കുന്നു
+            document.getElementById('foldBtn').style.display = 'block';
           } else {
             dealBtn.style.display = 'block'; betBtn.style.display = 'none'; raiseBtn.style.display = 'none'; document.getElementById('showdownBtn').style.display = 'none'; document.getElementById('foldBtn').style.display = 'none';
             dealBtn.disabled = (cleanWinner && cleanWinner !== cleanUser);
@@ -542,17 +556,21 @@
             face = '🥳'; // Celebrating a win
         } else if (msg.includes('ഫോൾഡ്')) {
             face = '🥱'; // Yawning or sighing
+        } else if (msg.includes('ബെറ്റ്') && msg.includes('അത്ഭുതപ്പെടുത്തിക്കൊണ്ട്')) {
+            face = '😲'; // Surprised/excited for Double raise
         } else if (msg.includes('ബെറ്റ്')) {
             face = state.pot > 500 ? '🤑' : '😏'; // Excited for big pot
         } else if (msg.includes('ഷോഡൗൺ')) {
             face = '😲'; // Shocked or tense
         } else if (msg.includes('കാർഡുകൾ കണ്ടു')) {
             face = '👀'; // Looking intently
+        } else if (msg.includes('കുത്തി')) {
+            face = '🤭'; // Giggling when someone is poked
         }
 
         var tableHtml = '<div class="table-center">';
         tableHtml += '<div class="dealer-woman">' + face + '</div>';
-        tableHtml += '<div class="pot-title">TOTAL POT</div><div class="pot-val">₹' + state.pot + '</div><div class="stake-val">അടിസ്ഥാന ബെറ്റ്: ₹' + state.currentStake + '</div>';
+        tableHtml += '<div class="pot-title">TOTAL POT</div><div class="pot-val">₹' + state.pot + '</div><div class="stake-val">അടിസ്ഥാന ബെറ്റ്: ₹' + (state.startingStake || 10) + '</div>';
         if (state.lastWinnerName) tableHtml += '<div class="dealer-badge">🃏 ഡീലർ: ' + state.lastWinnerName + '</div>';
         tableHtml += '</div>';
 
@@ -561,9 +579,23 @@
           var isActive = (idx === state.activePlayerIndex && !state.gameOver && p.isOccupied);
           var isMe = (p.isOccupied && p.name.toLowerCase() === cleanUser);
           var isDealer = (p.isOccupied && state.lastWinnerName && p.name.toLowerCase() === state.lastWinnerName.toLowerCase());
+          
+          var canSeeCards = (isMe && !p.hasSeen && !p.folded && !state.gameOver && p.cards && p.cards.length > 0);
+          var canPoke = (!isMe && p.isOccupied);
+          
+          // സീറ്റിൽ മുഴുവനായി ക്ലിക്ക് ചെയ്യാനുള്ള ഓപ്ഷൻ
+          var seatClick = '';
+          if(canSeeCards) seatClick = ' onclick="dispatchAction(\'lookAtCards\', ' + p.id + ')" style="cursor:pointer;" title="കാർഡുകൾ കാണാൻ ഇവിടെ ക്ലിക്ക് ചെയ്യുക"';
+          else if(canPoke) seatClick = ' onclick="dispatchAction(\'pokePlayer\', ' + p.id + ')" style="cursor:pointer;" title="കുത്താൻ ക്ലിക്ക് ചെയ്യുക"';
+
           var stateClasses = 'seat pos-' + displayIndex + (isActive ? ' active' : '') + (!p.isOccupied ? ' empty' : '') + (p.folded && p.isOccupied ? ' folded' : '');
 
-          tableHtml += '<div class="' + stateClasses + '"><div class="avatar-box">';
+          tableHtml += '<div class="' + stateClasses + '"' + seatClick + '>';
+          
+          // Poking float div
+          tableHtml += '<div id="poke_seat_' + idx + '" style="display:none; position:absolute; top:-40px; left:50%; transform:translateX(-50%); background:rgba(239,68,68,0.95); color:white; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; white-space:nowrap; z-index:200; pointer-events:none; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.5);"></div>';
+
+          tableHtml += '<div class="avatar-box">';
           if (isDealer) tableHtml += '<div class="dealer-chip">D</div>';
           
           if (p.isOccupied) {
@@ -599,8 +631,8 @@
           }
 
           if (p.isOccupied && isMe) {
-            if (!p.hasSeen && !p.folded && !state.gameOver && p.cards.length > 0) {
-               tableHtml += '<button class="btn-seat-action" style="background:#475569;" onclick="dispatchAction(\'lookAtCards\', ' + p.id + ')">നോക്കുക (See)</button>';
+            if (canSeeCards) {
+               tableHtml += '<div class="btn-seat-action-overlay">നോക്കുക (See)</div>';
             }
             if (state.gameOver || p.folded) {
                tableHtml += '<button class="btn-seat-action btn-leave-small" onclick="dispatchAction(\'leaveSeat\', ' + idx + ')">സീറ്റ് ഒഴിയുക</button>';
@@ -784,6 +816,14 @@
       }
     }
 
+    window.adminChangeBaseBet = function() {
+      var val = document.getElementById('adminBaseBetInput').value;
+      if(val) {
+          dispatchAction('adminSetBaseBet', ADMIN_PASSWORD, val);
+          document.getElementById('adminBaseBetInput').value = '';
+      }
+    };
+
     window.renderAdminPanel = function() {
       if (!window.lastState) return;
       var container = document.getElementById('adminPlayersList');
@@ -862,7 +902,7 @@
     function getInitialState() {
       var players = [];
       for (var i = 0; i < MAX_PLAYERS; i++) players.push({ id: i, name: 'സീറ്റ് ' + (i + 1), isOccupied: false, chips: 500, cards: [], isBlind: true, hasSeen: false, folded: true, firstRoundDone: false, joinedAt: 0 });
-      return { pot: 0, currentStake: 10, activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
+      return { pot: 0, currentStake: 10, startingStake: 10, activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
     }
 
     var isActionRunning = false;
@@ -976,7 +1016,7 @@
         if (state.lastWinnerName && callerName.toLowerCase().trim() !== state.lastWinnerName.toLowerCase().trim() && state.players.some(p=>p.name.toLowerCase()===state.lastWinnerName.toLowerCase())) {
           state.message = 'അനുമതിയില്ല: ഡീലറായ ' + state.lastWinnerName + '-ന് മാത്രമേ ഡീൽ ചെയ്യാൻ സാധിക്കൂ!'; return state;
         }
-        var ante = 10; state.pot = 0; state.currentStake = ante; state.gameOver = false; state.roundId = (state.roundId || 0) + 1; state.isFirstCycle = true; state.turnStartTime = Date.now();
+        var ante = state.startingStake || 10; state.pot = 0; state.currentStake = ante; state.gameOver = false; state.roundId = (state.roundId || 0) + 1; state.isFirstCycle = true; state.turnStartTime = Date.now();
         var deck = createDeck();
         state.players.forEach(p => {
           if (p.isOccupied) { p.chips -= ante; state.pot += ante; p.cards = [deck.pop(), deck.pop(), deck.pop()]; p.hasSeen = false; p.isBlind = true; p.folded = false; p.firstRoundDone = false; }
@@ -987,13 +1027,23 @@
         state.dealerPlayerIndex = dealerIdx;
         state.players[dealerIdx].hasSeen = true; state.players[dealerIdx].isBlind = false;
         state.activePlayerIndex = this.getNextActiveIndex(state, dealerIdx);
-        state.message = seatedPlayers.length + ' പേർക്കായി കാർഡുകൾ നൽകി!';
+        state.message = '🃏 ' + seatedPlayers.length + ' പേർക്കായി പുതിയ കാർഡുകൾ നൽകി! 🎲✨';
         return state;
       },
       lookAtCards: function(state, callerName, playerId) {
         var player = state.players[playerId];
         if (player && player.isOccupied && player.name.toLowerCase() === callerName.toLowerCase().trim()) {
-          player.hasSeen = true; player.isBlind = false; state.message = player.name + ' കാർഡുകൾ കണ്ടു (SEEN ആയി).';
+          player.hasSeen = true; player.isBlind = false; state.message = player.name + ' കാർഡുകൾ കണ്ടു (SEEN ആയി). 👀';
+        }
+        return state;
+      },
+      pokePlayer: function(state, callerName, targetId) {
+        var target = state.players[targetId];
+        if (target && target.isOccupied && target.name.toLowerCase() !== callerName.toLowerCase()) {
+            var emojis = ['👉😆', '😜', '👻', '💥', '👀', '🤏'];
+            var randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+            target.pokeMsg = { text: callerName + ' കുത്തി! ' + randomEmoji, time: Date.now() };
+            state.message = callerName + ' ' + target.name + '-നെ കുത്തി! ' + randomEmoji;
         }
         return state;
       },
@@ -1021,7 +1071,11 @@
         }
 
         active.chips -= cost; state.pot += cost; active.firstRoundDone = true;
-        state.message = active.name + ' ' + cost + ' രൂപ ബെറ്റ് വെച്ചു.';
+        
+        var betEmoji = (raiseMultiplier > 1) ? '🔥🚀' : '🪙💵👍';
+        var betType = (raiseMultiplier > 1) ? ' അത്ഭുതപ്പെടുത്തിക്കൊണ്ട് ഇരട്ടി ബെറ്റ് വെച്ചു!' : ' രൂപ ബെറ്റ് വെച്ചു.';
+        state.message = '🎯 ' + active.name + ' ₹' + cost + betType + ' ' + betEmoji;
+        
         state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
         state.turnStartTime = Date.now();
         var remainingActive = state.players.filter(p => p.isOccupied && !p.folded);
@@ -1036,12 +1090,12 @@
         var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
         if (activeRemaining.length === 1) {
           var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
-          state.message = 'മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു! ' + winner.name + ' ' + state.pot + ' രൂപ നേടി.';
+          state.message = '🎉 മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു! ' + winner.name + ' ₹' + state.pot + ' നേടി. 🏆💰';
           if (!state.history || !Array.isArray(state.history)) state.history = [];
           state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു' });
           if (state.history.length > 30) state.history.shift();
         } else {
-          state.message = active.name + ' ഫോൾഡ് ചെയ്തു.';
+          state.message = '🏳️ ' + active.name + ' ഫോൾഡ് ചെയ്തു. 🏃💨';
           state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
           state.turnStartTime = Date.now();
           if (state.isFirstCycle && activeRemaining.every(p => p.firstRoundDone)) state.isFirstCycle = false;
@@ -1086,7 +1140,7 @@
         }
 
         winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
-        state.message = 'ഷോഡൗൺ! ' + p1.name + ': ' + p1Eval.desc + ' | ' + p2.name + ': ' + p2Eval.desc + '. വിജയി: ' + winner.name + '!';
+        state.message = '⚔️ ഷോഡൗൺ! ' + p1.name + ': ' + p1Eval.desc + ' | ' + p2.name + ': ' + p2Eval.desc + '. 🏆 വിജയി: ' + winner.name + '! 🎉💸';
         
         if (!state.history || !Array.isArray(state.history)) state.history = [];
         state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: p1.name + ' (' + p1Eval.desc + ') vs ' + p2.name + ' (' + p2Eval.desc + ')' });
@@ -1104,16 +1158,26 @@
          var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
          if (activeRemaining.length === 1) {
             var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
-            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി.';
+            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി. 🏆';
             if (!state.history || !Array.isArray(state.history)) state.history = [];
             state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞു (Auto-fold)' });
             if (state.history.length > 30) state.history.shift();
          } else {
-            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി!';
+            state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ⏳';
             state.activePlayerIndex = this.getNextActiveIndex(state, state.activePlayerIndex);
             state.turnStartTime = Date.now();
          }
          return state;
+      },
+      adminSetBaseBet: function(state, callerName, pwd, newStake) {
+          if (pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
+          var val = parseInt(newStake);
+          if (val > 0) {
+              state.startingStake = val;
+              if(state.gameOver) state.currentStake = val;
+              state.message = '⚡ അഡ്മിൻ അടിസ്ഥാന ബെറ്റ് ₹' + val + ' ആയി സജ്ജീകരിച്ചു! ⚙️';
+          }
+          return state;
       },
       adminResetTable: function(state, callerName, pwd) {
           if (pwd && pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
@@ -1121,7 +1185,9 @@
           newState.balances = state.balances;
           newState.history = state.history || [];
           newState.chats = state.chats || [];
-          newState.message = pwd ? '⚡ അഡ്മിൻ പാസ്‌വേഡ് നൽകി ടേബിൾ റീസെറ്റ് ചെയ്തു!' : '⏰ സമയം കഴിഞ്ഞതിനാൽ ടേബിൾ തനിയെ റീസെറ്റ് ആയി.';
+          newState.startingStake = state.startingStake || 10;
+          newState.currentStake = newState.startingStake;
+          newState.message = pwd ? '⚡ അഡ്മിൻ ടേബിൾ റീസെറ്റ് ചെയ്തു! 🔄' : '⏰ സമയം കഴിഞ്ഞതിനാൽ ടേബിൾ തനിയെ റീസെറ്റ് ആയി. 🔄';
           return newState;
       },
       adminKickPlayer: function(state, callerName, pwd, seatId) {
@@ -1130,14 +1196,14 @@
           if (seat && seat.isOccupied) {
               var pName = seat.name;
               seat.isOccupied = false; seat.name = 'സീറ്റ് ' + (seatId + 1); seat.cards = []; seat.folded = true; seat.hasSeen = false; seat.joinedAt = 0;
-              state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ മേശയിൽ നിന്നും പുറത്താക്കി!';
+              state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ മേശയിൽ നിന്നും പുറത്താക്കി! 🚪';
               if (state.activePlayerIndex === seatId && !state.gameOver) { state.activePlayerIndex = this.getNextActiveIndex(state, seatId); state.turnStartTime = Date.now(); }
               if (!state.gameOver) {
                  var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
                  if (activeRemaining.length === 1) {
                     var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
-                    state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ പുറത്താക്കി. ബാക്കിയുള്ള ' + winner.name + ' ' + state.pot + ' രൂപ നേടി.';
-                 } else if (activeRemaining.length === 0) { state.gameOver = true; state.message = 'എല്ലാവരും പുറത്തായി! കളി അവസാനിച്ചു.'; }
+                    state.message = '⚡ അഡ്മിൻ ' + pName + '-നെ പുറത്താക്കി. ബാക്കിയുള്ള ' + winner.name + ' ₹' + state.pot + ' നേടി. 🏆';
+                 } else if (activeRemaining.length === 0) { state.gameOver = true; state.message = 'എല്ലാവരും പുറത്തായി! കളി അവസാനിച്ചു. 🛑'; }
               }
           }
           return state;
@@ -1148,7 +1214,7 @@
           if (seat && seat.isOccupied) {
               seat.chips = newBalance;
               if (state.balances) state.balances[seat.name.toLowerCase().trim()] = newBalance;
-              state.message = '⚡ അഡ്മിൻ ' + seat.name + '-ന്റെ തുക ₹' + newBalance + ' ആയി മാറ്റി.';
+              state.message = '⚡ അഡ്മിൻ ' + seat.name + '-ന്റെ തുക ₹' + newBalance + ' ആയി മാറ്റി. 💰';
           }
           return state;
       },
@@ -1180,12 +1246,10 @@
       var isPair = (ranks[0] === ranks[1] || ranks[1] === ranks[2]);
       var isSequence = (ranks[0] + 1 === ranks[1] && ranks[1] + 1 === ranks[2]);
 
-      // 1. ട്രയൽ (Trail)
       if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
          return { score: 90000 + ranks[0], desc: (cards[0].label === 'A' ? 'ഏസ് ട്രയൽ (Three Aces)' : cards[0].label + '-ന്റെ ട്രയൽ') };
       }
       
-      // 2. TIN Logic: Must be A, K, Q (ranks 12, 13, 14), 3 different suits, exactly one Spade, AND NO JOKER
       var isAKQ = (ranks[0] === 12 && ranks[1] === 13 && ranks[2] === 14);
       if (isAKQ && uniqueSuits.size === 3 && suits.includes('♠') && !hasJoker) {
          var cardA = cards.find(c => c.rank === 14);
@@ -1201,19 +1265,16 @@
          }
       }
 
-      // 3. കളർ റൺ (Pure Sequence / Straight Flush)
       if (isSequence && isFlush) {
          var highCard = cards.find(c => c.rank === ranks[2]);
          return { score: 70000 + ranks[2], desc: 'കളർ റൺ (Pure Sequence ' + highCard.label + '-ഹൈ)' };
       }
 
-      // 4. റൺ (Sequence / Straight)
       if (isSequence && !isFlush) {
          var highCard = cards.find(c => c.rank === ranks[2]);
          return { score: 60000 + ranks[2], desc: 'റൺ (Sequence ' + highCard.label + '-ഹൈ)' };
       }
 
-      // 5. കളർ പെയർ (Color Pair)
       if (isFlush && isPair) {
           var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1];
           var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0];
@@ -1221,13 +1282,11 @@
           return { score: 48000 + (pairRank * 30) + kicker, desc: 'കളർ പെയർ (' + pairCard.label + ')' };
       }
 
-      // 6. നാച്ചുറൽ കളർ / ഫ്ലഷ്
       if (isFlush && !hasJoker) { 
          var highCard = cards.find(c => c.rank === ranks[2]); 
          return { score: 40000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'കളർ / ഫ്ലഷ് (' + highCard.label + '-ഹൈ)' }; 
       }
 
-      // 7. പെയർ
       if (isPair) { 
          var pairRank = (ranks[0] === ranks[1]) ? ranks[0] : ranks[1]; 
          var kicker = (ranks[0] === ranks[1]) ? ranks[2] : ranks[0]; 
@@ -1235,7 +1294,6 @@
          return { score: 20000 + (pairRank * 30) + kicker, desc: pairCard.label + '-ന്റെ പെയർ' }; 
       }
 
-      // 8. ഹൈ കാർഡ്
       var highCard = cards.find(c => c.rank === ranks[2]); 
       return { score: 10000 + (ranks[2] * 400 + ranks[1] * 20 + ranks[0]), desc: 'ഹൈ കാർഡ് (' + highCard.label + ')' };
     }
@@ -1330,6 +1388,20 @@
                     timerDiv.style.display = 'none';
                 }
             }
+
+            var pokeDiv = document.getElementById('poke_seat_' + i);
+            if (pokeDiv && state.players[i]) {
+                var pInfo = state.players[i];
+                if (pInfo.pokeMsg && (Date.now() - pInfo.pokeMsg.time) < 4000) {
+                    if (pokeDiv.getAttribute('data-time') != pInfo.pokeMsg.time) {
+                        pokeDiv.innerText = pInfo.pokeMsg.text;
+                        pokeDiv.style.display = 'block';
+                        pokeDiv.setAttribute('data-time', pInfo.pokeMsg.time);
+                    }
+                } else {
+                    pokeDiv.style.display = 'none';
+                }
+            }
         }
     };
 
@@ -1342,7 +1414,7 @@
         
         if (state.turnStartTime) {
             var totalElapsedSinceTurnStart = (Date.now() - state.turnStartTime) / 1000;
-            if (totalElapsedSinceTurnStart >= 180) { 
+            if (totalElapsedSinceTurnStart >= 420) { // 7 Minutes Reset Time
                  if (!isCheckingTimeout) {
                      isCheckingTimeout = true;
                      try {
