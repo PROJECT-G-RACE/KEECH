@@ -635,8 +635,9 @@
           if (p.isOccupied && p.cards && p.cards.length > 0) {
             tableHtml += '<div class="cards-tray">';
             
+            // SHOWDOWN മാത്രം കാണിക്കാൻ അപ്ഡേറ്റ് ചെയ്ത ഭാഗം
             var isShowdownReveal = (state.gameOver && state.isShowdown === true && !p.folded);
-            var isMyOwnCards = (isMe && (p.hasSeen || state.gameOver));
+            var isMyOwnCards = (isMe && p.hasSeen);
 
             if (isMyOwnCards || isShowdownReveal) {
                p.cards.forEach(c => {
@@ -1208,7 +1209,7 @@
       adminResetTable: function(state, callerName, pwd) {
           if (pwd && pwd !== ADMIN_PASSWORD) { state.message = '❌ അഡ്മിൻ പാസ്‌വേഡ് തെറ്റാണ്!'; return state; }
           var newState = getInitialState();
-          newState.tableStartTime = Date.now(); // Reset table time
+          newState.tableStartTime = Date.now(); 
           newState.balances = state.balances;
           newState.history = state.history || [];
           newState.chats = state.chats || [];
@@ -1345,7 +1346,7 @@
       var nonJokerCards = cards.filter((_, idx) => idx !== jokerIndex);
       if (nonJokerCards.length < 2) return { score: 0, desc: 'കാർഡുകളില്ല' };
       
-      var candidateSuits = ['♠', '♥', '♦', '♣']; 
+      var candidateSuits = ['♠']; 
       var allPossibleRanks = [
           { rank: 10, label: '10' }, { rank: 11, label: 'J' }, 
           { rank: 12, label: 'Q' }, { rank: 13, label: 'K' }, { rank: 14, label: 'A' }
