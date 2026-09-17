@@ -299,9 +299,7 @@
       <div id="adminPlayersList" style="max-height: 250px; overflow-y: auto; text-align: left; margin-bottom:15px; padding-right: 5px;"></div>
       <hr style="border: 1px solid #334155; margin: 10px 0;">
       
-      <!-- പുതിയ ബട്ടൺ ചേർത്തു -->
       <button onclick="dispatchAction('adminResetAllBalances', '555')" style="width: 100%; background: #ea580c; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; margin-bottom: 10px;">എല്ലാവരുടെയും തുക പൂജ്യമാക്കുക (Set All to 0)</button>
-      
       <button onclick="dispatchAction('adminResetTable', '555')" style="width: 100%; background: #b91c1c; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer; margin-bottom: 10px;">ടേബിൾ റീസെറ്റ് ചെയ്യുക (Reset All)</button>
       <button onclick="document.getElementById('adminPanelModal').style.display='none'" style="width: 100%; background: #475569; padding: 10px; border-radius: 6px; color: white; font-weight: bold; border: none; cursor: pointer;">ക്ലോസ് ചെയ്യുക</button>
     </div>
@@ -636,7 +634,11 @@
 
           if (p.isOccupied && p.cards && p.cards.length > 0) {
             tableHtml += '<div class="cards-tray">';
-            if ((isMe && p.hasSeen) || state.gameOver) {
+            
+            var isShowdownReveal = (state.gameOver && state.isShowdown === true && !p.folded);
+            var isMyOwnCards = (isMe && (p.hasSeen || state.gameOver));
+
+            if (isMyOwnCards || isShowdownReveal) {
                p.cards.forEach(c => {
                  var isRed = (c.suit === '♥' || c.suit === '♦');
                  var cardColor = isRed ? 'card-red' : 'card-black';
@@ -923,9 +925,8 @@
 
     function getInitialState() {
       var players = [];
-      // Changes initial chips from 500 to 0
       for (var i = 0; i < MAX_PLAYERS; i++) players.push({ id: i, name: 'സീറ്റ് ' + (i + 1), isOccupied: false, chips: 0, cards: [], isBlind: true, hasSeen: false, folded: true, firstRoundDone: false, joinedAt: 0 });
-      return { pot: 0, currentStake: 10, startingStake: 10, tableStartTime: Date.now(), activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
+      return { pot: 0, currentStake: 10, startingStake: 10, tableStartTime: Date.now(), activePlayerIndex: 0, dealerPlayerIndex: 0, gameOver: true, isShowdown: false, roundId: 0, isFirstCycle: true, blindChainBroken: false, turnStartTime: 0, dealerSelected: false, lastWinnerName: '', resetRequestedBy: '', message: 'മേശ തയ്യാറാണ്. പേര് നൽകി ഏതെങ്കിലും ഒഴിഞ്ഞ സീറ്റിൽ ഇരിക്കുക.', players: players, balances: {}, history: [], chats: [] };
     }
 
     var isActionRunning = false;
@@ -1041,7 +1042,7 @@
         if (state.lastWinnerName && callerName.toLowerCase().trim() !== state.lastWinnerName.toLowerCase().trim() && state.players.some(p=>p.name.toLowerCase()===state.lastWinnerName.toLowerCase())) {
           state.message = 'അനുമതിയില്ല: ഡീലറായ ' + state.lastWinnerName + '-ന് മാത്രമേ ഡീൽ ചെയ്യാൻ സാധിക്കൂ!'; return state;
         }
-        var ante = state.startingStake || 10; state.pot = 0; state.currentStake = ante; state.gameOver = false; state.roundId = (state.roundId || 0) + 1; state.isFirstCycle = true; state.turnStartTime = Date.now();
+        var ante = state.startingStake || 10; state.pot = 0; state.currentStake = ante; state.gameOver = false; state.isShowdown = false; state.roundId = (state.roundId || 0) + 1; state.isFirstCycle = true; state.turnStartTime = Date.now();
         var deck = createDeck();
         state.players.forEach(p => {
           if (p.isOccupied) { p.chips -= ante; state.pot += ante; p.cards = [deck.pop(), deck.pop(), deck.pop()]; p.hasSeen = false; p.isBlind = true; p.folded = false; p.firstRoundDone = false; }
@@ -1114,7 +1115,7 @@
         active.folded = true; active.firstRoundDone = true;
         var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
         if (activeRemaining.length === 1) {
-          var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+          var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.isShowdown = false; state.lastWinnerName = winner.name;
           state.message = '🎉 മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു! ' + winner.name + ' ₹' + state.pot + ' നേടി. 🏆💰';
           if (!state.history || !Array.isArray(state.history)) state.history = [];
           state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'മറ്റെല്ലാവരും ഫോൾഡ് ചെയ്തു' });
@@ -1164,14 +1165,14 @@
             winner = (active.id === p1.id) ? p2 : p1;
         }
 
-        winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+        winner.chips += state.pot; state.gameOver = true; state.isShowdown = true; state.lastWinnerName = winner.name;
         state.message = '⚔️ ഷോഡൗൺ! ' + p1.name + ': ' + p1Eval.desc + ' | ' + p2.name + ': ' + p2Eval.desc + '. 🏆 വിജയി: ' + winner.name + '! 🎉💸';
         
         if (!state.history || !Array.isArray(state.history)) state.history = [];
         state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: p1.name + ' (' + p1Eval.desc + ') vs ' + p2.name + ' (' + p2Eval.desc + ')' });
         if (state.history.length > 30) state.history.shift();
         
-        state.players.forEach(p => { if (p.isOccupied) p.hasSeen = true; });
+        state.players.forEach(p => { if (p.isOccupied && !p.folded) p.hasSeen = true; });
         return state;
       },
       autoFoldTimeout: function(state, callerName) {
@@ -1182,7 +1183,7 @@
          timedOutPlayer.folded = true; timedOutPlayer.firstRoundDone = true;
          var activeRemaining = state.players.filter(p => p.isOccupied && !p.folded);
          if (activeRemaining.length === 1) {
-            var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.lastWinnerName = winner.name;
+            var winner = activeRemaining[0]; winner.chips += state.pot; state.gameOver = true; state.isShowdown = false; state.lastWinnerName = winner.name;
             state.message = '⏰ ' + timedOutPlayer.name + ' ഓട്ടോ-ഫോൾഡ് ആയി! ' + winner.name + ' നേടി. 🏆';
             if (!state.history || !Array.isArray(state.history)) state.history = [];
             state.history.push({ time: Date.now(), winner: winner.name, pot: state.pot, details: 'സമയപരിധി കഴിഞ്ഞു (Auto-fold)' });
@@ -1213,6 +1214,7 @@
           newState.chats = state.chats || [];
           newState.startingStake = state.startingStake || 10;
           newState.currentStake = newState.startingStake;
+          newState.isShowdown = false;
           newState.message = pwd ? '⚡ അഡ്മിൻ ടേബിൾ റീസെറ്റ് ചെയ്തു! 🔄' : '⏰ സമയം കഴിഞ്ഞതിനാൽ ടേബിൾ തനിയെ റീസെറ്റ് ആയി. 🔄';
           return newState;
       },
